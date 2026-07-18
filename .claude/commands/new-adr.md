@@ -1,6 +1,6 @@
 ---
 description: สร้าง Architecture Decision Record (ADR) ใหม่ในระบบ memory ของโปรเจค
-argument-hint: "[ชื่อเรื่องการตัดสินใจสั้นๆ]"
+argument-hint: '[ชื่อเรื่องการตัดสินใจสั้นๆ]'
 ---
 
 สร้าง ADR ใหม่ตาม convention ใน `.claude/memory/MEMORY-GUIDE.md` โดยเรื่องคือ: **$ARGUMENTS**

@@ -1,6 +1,6 @@
 ---
 description: ย้าย memory file ที่เลิกใช้เข้า _archive/ (library) ตาม lifecycle ของโปรเจค
-argument-hint: "[path ของไฟล์ memory ที่จะ archive]"
+argument-hint: '[path ของไฟล์ memory ที่จะ archive]'
 ---
 
 Archive memory file ตาม lifecycle ใน `.claude/memory/MEMORY-GUIDE.md`
