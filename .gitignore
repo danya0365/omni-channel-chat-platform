@@ -1,0 +1,33 @@
+# === Claude Code / AI agent config ===
+# เก็บ .claude/ ทั้งหมดเข้า git (persona + memory + hooks + commands + rules)
+# ให้พกข้ามเครื่องผ่าน git clone ได้
+# (.claude/ ตั้งใจ NOT ignore)
+# ...ยกเว้นไฟล์ส่วนตัว/ความลับต่อเครื่อง:
+.claude/settings.local.json
+.mcp.json
+CLAUDE.local.md
+
+# === Secrets / env ===
+.env
+.env.*
+!.env.example
+
+# === Node (เผื่ออนาคต ถ้าเลือก JS/TS stack) ===
+node_modules/
+dist/
+build/
+.next/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# === OS / editor ===
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
