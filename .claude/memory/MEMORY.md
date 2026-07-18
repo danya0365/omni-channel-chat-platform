@@ -24,7 +24,7 @@
 
 ## Working Log
 
-- [Phase 1 Handoff](log/phase-1-handoff.md) — สถานะหลังจบ Phase 1 + วิธีรัน + ต้องทำอะไรต่อใน Phase 2 (อ่านตอนเปิด session ใหม่)
+- [Phase 2 Progress](log/phase-2-progress.md) — สถานะ Phase 2 (domain+db เสร็จ, ต่อ item 5 channel-web+api+WS) + วิธีรัน + decision ที่ล็อก (อ่านตอนเปิด session)
 
 ## Reference
 
