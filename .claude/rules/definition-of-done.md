@@ -1,9 +1,9 @@
 ---
 paths:
-  - "src/**"
-  - "apps/**"
-  - "packages/**"
-  - "services/**"
+  - 'src/**'
+  - 'apps/**'
+  - 'packages/**'
+  - 'services/**'
 ---
 
 # Definition of Done — เช็คก่อนบอกว่า "เสร็จ" (ทุก session / ทุก AI / พกข้ามโปรเจคได้)
@@ -15,11 +15,11 @@ paths:
 
 ### 1. Gate เขียวครบ — **บังคับเสมอ**
 
-รันชุดตรวจของโปรเจค (เมื่อ stack ตั้งแล้วจะรวบเป็นคำสั่งเดียว เช่น `npm run gate`):
-**lint + typecheck + test** (coverage gate ถ้ามี) + boundary check. ต้องเขียวทุกตัว.
+รันคำสั่งเดียว: **`pnpm gate`** = lint (ESLint) + typecheck (`tsc --noEmit` ทุก package) +
+test (Vitest) + boundary check (dependency-cruiser). ต้องเขียวทุกตัว.
 
-> ตอนนี้ยังไม่มี gate อัตโนมัติ (stack ยังไม่เลือก) → ยึดด้วยวินัย: อย่างน้อย typecheck + test ของส่วนที่แตะต้องผ่าน.
-> พอ setup stack แล้ว ให้ผูก pre-push hook + CI แล้วอัปเดตบรรทัดนี้ให้เป็นคำสั่งจริง.
+> CI รัน `pnpm gate` + `pnpm format` + `pnpm build` อัตโนมัติ (`.github/workflows/ci.yml`) ทุก push/PR.
+> แตะ DB → `pnpm db:up` (docker-compose Postgres) ก่อนรัน integration test.
 
 ### 2. Test ครอบของใหม่ — **บังคับเมื่อเพิ่ม/แก้ logic**
 
@@ -40,7 +40,7 @@ paths:
 ### 4. Commit สะอาด
 
 - conventional message (`feat:`/`fix:`/`docs:`…) · subject ไทยได้ · body ≤100 char/บรรทัด
-- ปิดท้าย `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
+- ปิดท้าย `Co-Authored-By:` ตามโมเดลที่ลงมือจริงใน session นั้น (เช่น `Claude Fable 5 <noreply@anthropic.com>`)
 - ไม่มี secret/คีย์/webhook token หลุด · `.env*` ต้อง gitignore
 - งานใหญ่ → **commit ทีละ increment ที่เขียว** (ไม่กองรวมก้อนเดียว)
 - ⚠️ commit **เมื่อพี่สั่งเท่านั้น** (กฎเหล็กใน AGENTS.md)
