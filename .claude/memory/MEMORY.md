@@ -24,7 +24,7 @@
 
 ## Working Log
 
-<!-- log งานที่กำลังทำ — ยังไม่มี -->
+- [Phase 1 Handoff](log/phase-1-handoff.md) — สถานะหลังจบ Phase 1 + วิธีรัน + ต้องทำอะไรต่อใน Phase 2 (อ่านตอนเปิด session ใหม่)
 
 ## Reference
 
