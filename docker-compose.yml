@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: omni-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: omni
+      POSTGRES_PASSWORD: omni_dev_only
+      POSTGRES_DB: omni
+    ports:
+      - '5432:5432'
+    volumes:
+      - omni_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U omni -d omni']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  omni_pgdata:

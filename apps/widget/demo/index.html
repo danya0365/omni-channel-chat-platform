@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Omni Widget Demo</title>
+  </head>
+  <body>
+    <h1>Omni Widget Demo</h1>
+    <div id="omni-widget"></div>
+    <script type="module">
+      import { mountWidget } from '/src/main.ts';
+      mountWidget(document.getElementById('omni-widget'));
+    </script>
+  </body>
+</html>
