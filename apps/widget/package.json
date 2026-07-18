@@ -9,6 +9,9 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
+  "dependencies": {
+    "@omni/channel-web": "workspace:*"
+  },
   "devDependencies": {
     "vite": "^6.0.5"
   }
