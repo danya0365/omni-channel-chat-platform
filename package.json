@@ -14,6 +14,7 @@
     "format:write": "prettier --write .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "check:boundaries": "depcruise apps packages --config .dependency-cruiser.cjs",
     "gate": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run check:boundaries",
     "build": "pnpm -r --if-present build",
