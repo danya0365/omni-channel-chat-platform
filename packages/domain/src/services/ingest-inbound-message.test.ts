@@ -51,6 +51,9 @@ function setup() {
       );
       return open.at(-1) ?? null;
     },
+    findById: async (workspaceId, conversationId) =>
+      store.conversations.find((c) => c.workspaceId === workspaceId && c.id === conversationId) ??
+      null,
     insert: async (_workspaceId, conversation) => {
       store.conversations.push(conversation);
     },

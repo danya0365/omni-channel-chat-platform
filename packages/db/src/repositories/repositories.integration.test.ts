@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq, sql } from 'drizzle-orm';
 import { createIngestInboundMessage } from '@omni/domain';
-import type { DomainEvent, IngestInboundDeps } from '@omni/domain';
+import type { DomainEvent, IngestInboundDeps, Message } from '@omni/domain';
 import { createDb } from '../client';
 import type { DbHandle } from '../client';
 import { createIdGenerator, systemClock } from '../id';
@@ -14,9 +14,11 @@ import {
   messages,
   workspaces,
 } from '../schema';
+import { createChannelRepository } from './channel-repository';
 import { createContactRepository } from './contact-repository';
 import { createConversationRepository } from './conversation-repository';
 import { createMessageRepository } from './message-repository';
+import { createWebRouteResolver } from './web-route-resolver';
 
 const DATABASE_URL =
   process.env.DATABASE_URL ?? 'postgresql://omni:omni_dev_only@localhost:5432/omni';
@@ -191,5 +193,63 @@ describe('@omni/db repositories + ingest (integration — ต้อง pnpm db:u
       .where(eq(conversations.workspaceId, workspaceId));
     expect(contactRows).toHaveLength(1);
     expect(convRows).toHaveLength(2);
+  });
+});
+
+describe('@omni/db web routing repos (integration — ต้อง pnpm db:up)', () => {
+  it('ChannelRepository.findPublicById → resolve workspace จาก channelId, unknown = null', async () => {
+    const { workspaceId, channelId } = await seed();
+    const repo = createChannelRepository(handle.db);
+
+    const found = await repo.findPublicById(channelId);
+    expect(found?.workspaceId).toBe(workspaceId);
+    expect(found?.type).toBe('web');
+
+    expect(await repo.findPublicById('chn_ไม่มีอยู่จริง')).toBeNull();
+  });
+
+  it('ConversationRepository.findById → scope workspace (ต่าง workspace = null)', async () => {
+    const { workspaceId, channelId } = await seed();
+    const { ingest } = makeIngest();
+    const res = await ingest({
+      workspaceId,
+      channelId,
+      externalId: 'visitor-1',
+      content: { type: 'text', text: 'hi' },
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const repo = createConversationRepository(handle.db);
+    const conv = await repo.findById(workspaceId, res.value.conversation.id);
+    expect(conv?.id).toBe(res.value.conversation.id);
+
+    // workspace อื่นมองไม่เห็นสายนี้ (multi-tenant isolation)
+    expect(await repo.findById('ws_tenant_อื่น', res.value.conversation.id)).toBeNull();
+  });
+
+  it('WebRouteResolver → outbound message (conversationId) → externalId (session) ของ contact บนช่องทาง', async () => {
+    const { workspaceId, channelId } = await seed();
+    const { ingest } = makeIngest();
+    const res = await ingest({
+      workspaceId,
+      channelId,
+      externalId: 'visitor-42',
+      content: { type: 'text', text: 'hi' },
+    });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+
+    const resolve = createWebRouteResolver(handle.db);
+    const outbound: Message = {
+      ...res.value.message,
+      id: 'msg_out_1',
+      direction: 'outbound',
+      sender: { kind: 'bot' },
+    };
+    expect(await resolve(outbound)).toBe('visitor-42');
+
+    // conversation ไม่มีจริง → null (ไม่มีปลายทางให้ route)
+    expect(await resolve({ ...outbound, conversationId: 'conv_ไม่มีจริง' })).toBeNull();
   });
 });

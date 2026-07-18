@@ -6,3 +6,4 @@ export * from './ids';
 export * from './schema';
 export * from './ports';
 export * from './services/ingest-inbound-message';
+export * from './services/send-outbound-message';

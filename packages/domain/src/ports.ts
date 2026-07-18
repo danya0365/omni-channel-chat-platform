@@ -2,9 +2,22 @@ import { z } from 'zod';
 import { idSchema } from './ids';
 import type { WorkspaceId, ChannelId, ContactId, ConversationId } from './ids';
 import type { Result } from './result';
+import type { Channel } from './schema/channel';
 import type { Contact, ContactIdentity } from './schema/contact';
 import type { Conversation } from './schema/conversation';
 import type { Message } from './schema/message';
+
+/**
+ * ChannelRepository — resolve channel จาก id
+ *
+ * ⚠️ ข้อยกเว้น multi-tenant: `findPublicById` **ไม่รับ workspaceId** เพราะเป็น "จุดเข้า" ของ
+ * inbound จากช่องทาง — client (widget) รู้แค่ `channelId` (public identifier ใน URL) ยังไม่รู้ว่า
+ * อยู่ workspace ไหน. method นี้แหละที่ **สถาปนา workspace context** จาก channelId (channel ผูก 1 workspace).
+ * หลังจากได้ channel แล้ว โค้ดต่อจากนี้ต้อง scope ด้วย `channel.workspaceId` เสมอ.
+ */
+export interface ChannelRepository {
+  findPublicById(channelId: ChannelId): Promise<Channel | null>;
+}
 
 /**
  * Repository ports — adapter (@omni/db) จะ implement
@@ -38,6 +51,9 @@ export interface ConversationRepository {
     channelId: ChannelId,
   ): Promise<Conversation | null>;
 
+  /** หา conversation จาก id (scope workspace) — null ถ้าไม่มี · ใช้ตอน outbound เช็คว่าสายมีจริง */
+  findById(workspaceId: WorkspaceId, conversationId: ConversationId): Promise<Conversation | null>;
+
   insert(workspaceId: WorkspaceId, conversation: Conversation): Promise<void>;
 
   /** อัปเดต lastMessageAt (เด้ง conversation ขึ้นบนสุดใน inbox) */
@@ -54,8 +70,13 @@ export interface MessageRepository {
 
 /** ผลลัพธ์การส่ง outbound จาก provider */
 export interface OutboundReceipt {
-  /** id ที่ provider คืนมา (ไว้ trace/dedup) — null ถ้าไม่มี */
+  /** id ที่ provider คืนมา (ไว้ trace/dedup) — null ถ้าไม่มี (เช่น web ไม่มี provider id) */
   externalId: string | null;
+  /**
+   * ปลายทางรับได้จริงไหมในตอนนี้ — web: มี socket live ต่ออยู่รับ (true) หรือ widget offline (false)
+   * false ไม่ใช่ error: message persist ไว้แล้ว widget จะดึง history ตอน reconnect (Phase 3)
+   */
+  delivered: boolean;
 }
 export interface OutboundError {
   code: 'send_failed';

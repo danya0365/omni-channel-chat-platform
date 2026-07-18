@@ -26,6 +26,19 @@ export function createConversationRepository(db: Database): ConversationReposito
       return row ? conversationSchema.parse(row) : null;
     },
 
+    findById: async (workspaceId, conversationId) => {
+      const rows = await db
+        .select()
+        .from(conversations)
+        .where(
+          and(eq(conversations.workspaceId, workspaceId), eq(conversations.id, conversationId)),
+        )
+        .limit(1);
+
+      const row = rows[0];
+      return row ? conversationSchema.parse(row) : null;
+    },
+
     insert: async (_workspaceId, conversation) => {
       await db.insert(conversations).values(conversation);
     },
