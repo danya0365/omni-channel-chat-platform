@@ -1,6 +1,6 @@
 ---
 name: phase-4-progress
-description: 'สถานะ Phase 4 (routing/assignment + LINE channel) — sub-phase A (routing) เสร็จ+verify แล้ว · sub-phase B (LINE) ยังไม่เริ่ม. อ่านตอนเปิด session เพื่อทำ LINE channel ต่อ'
+description: 'สถานะ Phase 4 (routing/assignment + LINE channel) — sub-phase A (routing) + sub-phase B (LINE channel) เสร็จ+verify แล้ว (gate เขียว + integration). เหลือ verify browser (inbox refactor) + LINE e2e จริง (ทำไม่ได้—ไม่มี bot)'
 metadata:
   node_type: memory
   type: log
@@ -19,14 +19,16 @@ metadata:
 
 - branch **`feature/phase-4-routing-line`** (แยกจาก PR Phase 1-3 ที่ `feature/phase-1-stack-skeleton`)
   - remote: `git@github.com:danya0365/omni-channel-chat-platform.git` · push แล้ว
-- **sub-phase A (routing/assignment) เสร็จ + verify ครบ** · **sub-phase B (LINE channel) ยังไม่เริ่ม** ← ต่อตรงนี้
-- gate เขียว **120 unit** + integration **20** · inbox build ผ่าน
+- **sub-phase A (routing/assignment) เสร็จ + verify ครบ** · **sub-phase B (LINE channel) เสร็จ + verify (gate+integration+e2e)** ← ยังไม่ commit
+- gate เขียว **165 unit** + integration **28** · inbox build ผ่าน · **Playwright e2e 2 ผ่าน** (browser จริง)
+- ✅ เคลียร์แล้ว: verify browser inbox (Playwright e2e) · `/new-channel line` ([[line]] spec) · seed LINE demo channel (`chn_line_demo`)
 
 > **หมายเหตุ (2026-07-19): refactor inbox UI ทั้งชุด** — พี่ติงว่าโค้ด Next เละ (God component `Inbox.tsx` 419 บรรทัด +
 > react-hooks error ค้างที่ gate มองไม่เห็น). แตกเป็น `app/{lib,hooks,components/{ui,auth,inbox}}` (kebab-case) +
 > ui primitive (Button/TextInput) · wire inbox lint เข้า gate + eslint architecture rules (max-lines ฯลฯ).
 > path เก่าใน sub-phase A ด้านล่าง (`Inbox.tsx`) = stale — logic เดิมยังอยู่ครบ แค่ย้ายที่. ดู `.claude/rules/frontend-next.md` +
-> [[frontend-architecture-standard]]. **ยังไม่ verify browser หลัง refactor** (gate+build เขียว แต่ยังไม่ได้คลิกจริง)
+> [[frontend-architecture-standard]]. **verify browser แล้ว** ด้วย Playwright e2e headless (`apps/inbox/e2e/inbox.spec.ts`:
+> login→เห็นสาย→รับเรื่อง→ตอบ + realtime 2 แท็บ · `pnpm --filter @omni/inbox e2e` · ต้อง db:up + port 4001/4002 ว่าง)
 
 ## ✅ Sub-phase A — Routing/Assignment (เสร็จ)
 
@@ -50,14 +52,37 @@ metadata:
 **verify**: gate 102 + integration `inbox-realtime` (+1: assign→agent WS conversation event · close→DB) +
 `phase4-routing.integration` (setAssignee/setStatus/getConversationListItem) · **browser: ปุ่ม+badge+filter+2-tab realtime sync** (พี่คลิกยืนยัน)
 
-## ⭐ ต่อไป — Sub-phase B: LINE channel (ยังไม่เริ่ม)
+## ✅ Sub-phase B — LINE channel (เสร็จ)
 
-**ตัดสินใจไว้แล้ว (ADR-0004):** LINE creds เก็บ **DB ต่อ channel แบบ encrypted (AES-256-GCM, key จาก env `CHANNEL_ENCRYPTION_KEY`)** ·
-outbound ใช้ **LINE push API** (ไม่ใช่ reply token) · ⚠️ **LINE verify จริงในนี้ไม่ได้** (ไม่มี public URL/bot) → **contract test ด้วย fixture เท่านั้น** (ห้ามเคลม verify จริง)
+**ตัดสินใจไว้ (ADR-0004):** LINE creds เก็บ DB ต่อ channel แบบ encrypted (AES-256-GCM, key `CHANNEL_ENCRYPTION_KEY`) ·
+outbound = LINE push API · ⚠️ **LINE e2e จริงทำไม่ได้** (ไม่มี public URL/bot) → พิสูจน์ด้วย contract + integration ที่เซ็น signature เอง (ไม่เคลม LINE ยิงจริง)
 
-- **B1 db**: `channelType` enum เพิ่ม `'line'` + ตาราง `channel_credentials` (encrypted) + crypto util (encrypt/decrypt) + migration
-- **B2 `@omni/channel-line`**: signature verify (x-line-signature = HMAC-SHA256 ของ raw body), inbound (LINE event→IngestInboundCommand), outbound gateway (unified→LINE push API) — โครงลอก `channel-web`
-- **B3 api**: `POST /channels/line/:channelId/webhook` (ต้อง **raw body** — custom content-type parser ของ Fastify) + `/new-channel line` (slash command) + contract test ด้วย fixture payload จาก LINE docs
+**B1 db** (`@omni/db`): `channelType` enum +`'line'` · `channelTypeSchema` domain +`'line'` · ตาราง `channel_credentials`
+(channelId PK, `secret_cipher` = ciphertext ของ JSON blob) · `crypto.ts` = `encryptSecret`/`decryptSecret` (AES-256-GCM,
+format `v1.<iv>.<tag>.<ct>`) + `loadEncryptionKey` · `channel-credential-repository.ts` (get decrypt / upsert encrypt,
+คืน blob generic — db ไม่ผูก LINE shape) · migration **0002_shiny_xavin** (ADD VALUE 'line' + ตาราง)
+
+**B2 `@omni/channel-line`** (adapter ใหม่ · pkg + tsconfig, boundary auto ตาม `channel-[^/]+`):
+`signature.ts` (verifyLineSignature = HMAC-SHA256 raw body, timing-safe) · `inbound.ts` (`toIngestCommands`: LINE event→
+IngestInboundCommand เฉพาะ text จาก user, userId→externalId, message.id→externalMessageId, contactName=null) ·
+`outbound-gateway.ts` (`createLineOutboundGateway`: resolveRoute→userId + resolveCredentials + push) · `push-client.ts`
+(`createLineHttpPushClient` = POST /v2/bot/message/push, inject fetch) · `credentials.ts` (`lineCredentialsSchema` +
+`createLineCredentialResolver` = validate blob→typed)
+
+**B3 api**: `routes/line.ts` = `POST /channels/line/:channelId/webhook` — register ใน **plugin ย่อย encapsulated** ที่มี
+content-type parser `parseAs:'buffer'` (เก็บ raw body, ไม่กระทบ JSON parser route อื่น) → resolve line channel → decrypt cred →
+verify signature → parse → ingest ทีละ event (best-effort, ตอบ 200) · `outbound-dispatch.ts` = `createDispatchOutboundGateway`
+(เลือก web/line gateway ตาม channel type ของ message — **agent reply สาย LINE จึง push ถูกช่องทาง**) · wiring.ts แยก
+`buildChannelIo()` (กัน God function >120) ประกอบ cred+gateway+dispatch · deps เพิ่ม `lineCredentials` · env +`CHANNEL_ENCRYPTION_KEY`
+(dev default+warn เหมือน AUTH secret)
+
+**verify**: gate เขียว (165 unit) — crypto 10 · channel-line contract 20 (fixture LINE docs) · line-webhook contract 8 (app.inject
+raw body+signature) · dispatch unit 3 · integration **28** — **line-webhook.integration** ขับ inbound e2e ผ่าน HTTP+Postgres จริง
+(signed POST→raw parser→decrypt cred จริง→ingest→DB: message+identity=LINE userId · bad sig→401 ไม่ลง DB · msg2 เข้า conv เดิม) +
+credential repo 5 (encrypted-at-rest จริง) · web-flow เดิมยังผ่าน dispatch ได้
+
+**ยังไม่ได้ทำ / ทำไม่ได้:** ❌ LINE ยิง webhook จริง + push ไป user จริง (ไม่มี bot/public URL — ตาม ADR) ·
+⏳ `/new-channel line` (memory spec doc) · ⏳ seed LINE demo channel · ⏳ verify browser inbox refactor (ค้างจาก sub-phase A)
 
 ## วิธีรัน (routing demo — verify แล้ว)
 

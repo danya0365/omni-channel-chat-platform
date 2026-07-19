@@ -19,7 +19,8 @@
 
 ## Active Channels
 
-<!-- ช่องทางแชทที่รองรับ — เพิ่มด้วย /new-channel (ยังไม่มี) -->
+- [web](../../packages/channel-web/) — web chat widget (Phase 2) · inbound REST + outbound WS realtime
+- [LINE](channels/line.md) — LINE Messaging API (Phase 4) · inbound webhook (HMAC-SHA256 raw body) + outbound push · credential encrypted (AES-256-GCM) ใน DB · text only (MVP)
 
 ## Modules
 
@@ -29,7 +30,7 @@
 
 ## Working Log
 
-- [Phase 4 Progress](log/phase-4-progress.md) — **active** — routing/assignment เสร็จ+verify · LINE channel (sub-phase B) ยังไม่เริ่ม ← ต่อตรงนี้
+- [Phase 4 Progress](log/phase-4-progress.md) — **active** — routing/assignment + LINE channel (sub-phase B) เสร็จ+verify (gate+integration) · ยังไม่ commit · เหลือ verify browser inbox refactor
 - [Phase 3 Progress](log/phase-3-progress.md) — Phase 3 จบแล้ว (agent inbox realtime + auth) — archive ได้
 - [Phase 2 Progress](log/phase-2-progress.md) — Phase 2 จบแล้ว (web channel e2e) — archive ได้
 

@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { idSchema } from '../ids';
 
-/** ชนิดช่องทาง — Phase 2 มีแค่ web · line/messenger/instagram/... เพิ่มใน Phase 4 (แค่ต่อ enum) */
-export const channelTypeSchema = z.enum(['web']);
+/** ชนิดช่องทาง — Phase 2: web · Phase 4: +line · messenger/instagram/... เพิ่มภายหลัง (แค่ต่อ enum) */
+export const channelTypeSchema = z.enum(['web', 'line']);
 export type ChannelType = z.infer<typeof channelTypeSchema>;
 
 /** Channel = instance ช่องทางที่ตั้งค่าไว้ใน workspace หนึ่ง (เช่น web widget ของเว็บ A) */

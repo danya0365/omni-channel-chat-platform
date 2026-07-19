@@ -4,9 +4,10 @@ import {
   createManageConversation,
   createSendOutboundMessage,
 } from '@omni/domain';
-import type { ManageConversation } from '@omni/domain';
+import type { ChannelRepository, ManageConversation, OutboundGateway } from '@omni/domain';
 import {
   createAgentRepository,
+  createChannelCredentialRepository,
   createChannelRepository,
   createContactRepository,
   createConversationRepository,
@@ -17,12 +18,22 @@ import {
   createOutboxEventBus,
   createOutboxStore,
   createWebRouteResolver,
+  loadEncryptionKey,
   systemClock,
 } from '@omni/db';
+import type { DbHandle } from '@omni/db';
 import { createWebOutboundGateway } from '@omni/channel-web';
+import {
+  createLineCredentialResolver,
+  createLineHttpPushClient,
+  createLineOutboundGateway,
+} from '@omni/channel-line';
+import type { LineCredentialResolver } from '@omni/channel-line';
 import type { AppDeps } from './deps';
 import { createAuthService } from './auth/service';
+import { createDispatchOutboundGateway } from './outbound-dispatch';
 import { createConnectionRegistry } from './registry';
+import type { ConnectionRegistry } from './registry';
 import { createOutboxConsumer } from './realtime/outbox-consumer';
 import { createOutboxRelay } from './realtime/pg-boss-relay';
 
@@ -38,11 +49,55 @@ export interface ContainerConfig {
   databaseUrl: string;
   /** secret สำหรับ sign session token (auth) */
   authSecret: string;
+  /** key เข้ารหัส channel credential (hex 64/base64 ของ 32 byte) — ไม่ตั้ง = ใช้ dev key (ไม่ปลอดภัย) */
+  channelEncryptionKey?: string;
   /** อายุ token (วินาที) — default 12 ชม. */
   tokenTtlSec?: number;
 }
 
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
+
+/** dev-only encryption key (32 byte hex) — prod ต้องตั้ง CHANNEL_ENCRYPTION_KEY (ค่านี้ไม่ปลอดภัย ห้ามใช้จริง) */
+export const DEV_CHANNEL_ENCRYPTION_KEY =
+  '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff';
+
+/**
+ * ประกอบ channel IO ของ outbound: credential resolver (decrypt) + gateway ต่อช่องทาง + dispatcher
+ *
+ * - route resolver = generic (message → externalId ของ identity บนช่องทาง) · web=sessionId, line=LINE userId
+ * - dispatcher เลือก gateway ตาม channel type ของ conversation (service เรียก outbound.send เดียว ไม่รู้ช่องทาง)
+ * คืน `lineCredentials` ด้วยเพราะ webhook route ใช้ verify signature (ใช้ตัวเดียวกับที่ decrypt ให้ push)
+ */
+function buildChannelIo(
+  handle: DbHandle,
+  registry: ConnectionRegistry,
+  channels: ChannelRepository,
+  channelEncryptionKey: string | undefined,
+): { outbound: OutboundGateway; lineCredentials: LineCredentialResolver } {
+  const routeResolver = createWebRouteResolver(handle.db);
+
+  const encryptionKey = loadEncryptionKey(channelEncryptionKey ?? DEV_CHANNEL_ENCRYPTION_KEY);
+  const channelCredentials = createChannelCredentialRepository(handle.db, encryptionKey);
+  const lineCredentials = createLineCredentialResolver((workspaceId, channelId) =>
+    channelCredentials.get(workspaceId, channelId),
+  );
+
+  const webOutbound = createWebOutboundGateway({ registry, resolveRoute: routeResolver });
+  const lineOutbound = createLineOutboundGateway({
+    resolveRoute: routeResolver,
+    resolveCredentials: lineCredentials,
+    push: createLineHttpPushClient(),
+  });
+  const outbound = createDispatchOutboundGateway({
+    resolveChannelType: async (message) => {
+      const channel = await channels.findPublicById(message.channelId);
+      return channel && channel.workspaceId === message.workspaceId ? channel.type : null;
+    },
+    byType: { web: webOutbound, line: lineOutbound },
+  });
+
+  return { outbound, lineCredentials };
+}
 
 /**
  * Composition root จริง — ต่อ DB + repos + services + WS registry + outbound gateway + outbox realtime
@@ -63,10 +118,13 @@ export function createContainer(config: ContainerConfig): Container {
   const agents = createAgentRepository(handle.db);
   const inboxRead = createInboxReadRepository(handle.db);
 
-  const outbound = createWebOutboundGateway({
+  // channel IO (credential resolver + outbound gateway ต่อช่องทาง + dispatcher) — ประกอบแยกกัน God function
+  const { outbound, lineCredentials } = buildChannelIo(
+    handle,
     registry,
-    resolveRoute: createWebRouteResolver(handle.db),
-  });
+    channels,
+    config.channelEncryptionKey,
+  );
 
   // Outbox consumer — fan-out event เข้า agent WS (drain ใน tx: fetch SKIP LOCKED → send → mark)
   const drain = createOutboxConsumer({
@@ -172,6 +230,7 @@ export function createContainer(config: ContainerConfig): Container {
     manageConversation,
     auth,
     newSessionId: () => `web_${randomUUID()}`,
+    lineCredentials,
   };
 
   return {

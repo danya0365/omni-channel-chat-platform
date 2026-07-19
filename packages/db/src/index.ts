@@ -3,6 +3,7 @@
 
 export * from './schema';
 export * from './client';
+export * from './crypto';
 export * from './id';
 export * from './migrate';
 export * from './repositories';

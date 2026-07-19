@@ -12,6 +12,7 @@
   "dependencies": {
     "@fastify/cors": "^10.1.0",
     "@fastify/websocket": "^11.3.0",
+    "@omni/channel-line": "workspace:*",
     "@omni/channel-web": "workspace:*",
     "@omni/db": "workspace:*",
     "@omni/domain": "workspace:*",

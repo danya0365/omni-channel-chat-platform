@@ -1,4 +1,5 @@
 export * from './agent-repository';
+export * from './channel-credential-repository';
 export * from './channel-repository';
 export * from './contact-repository';
 export * from './conversation-repository';

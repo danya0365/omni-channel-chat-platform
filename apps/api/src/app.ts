@@ -4,6 +4,7 @@ import fastifyCors from '@fastify/cors';
 import type { AppDeps } from './deps';
 import { registerAuthRoutes } from './routes/auth';
 import { registerInboxRoutes } from './routes/inbox';
+import { registerLineRoutes } from './routes/line';
 import { registerWebRoutes } from './routes/web';
 
 export type { AppDeps } from './deps';
@@ -27,6 +28,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerAuthRoutes(app, deps);
   registerInboxRoutes(app, deps);
   registerWebRoutes(app, deps);
+  registerLineRoutes(app, deps);
 
   return app;
 }

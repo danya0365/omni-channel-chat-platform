@@ -169,6 +169,7 @@ function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     manageConversation,
     auth,
     newSessionId: () => 'web_test_session',
+    lineCredentials: async () => null,
     ...overrides,
   };
 }

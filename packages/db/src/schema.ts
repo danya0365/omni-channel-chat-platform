@@ -10,7 +10,7 @@ import type { Assignee, MessageContent, MessageSender } from '@omni/domain';
  * union types (content/sender/assignee) เก็บเป็น jsonb + typed ด้วย @omni/domain (ยืดหยุ่น ไม่ต้อง migrate ต่อชนิด)
  */
 
-export const channelType = pgEnum('channel_type', ['web']);
+export const channelType = pgEnum('channel_type', ['web', 'line']);
 export const messageDirection = pgEnum('message_direction', ['inbound', 'outbound']);
 export const deliveryStatus = pgEnum('delivery_status', [
   'received',
@@ -171,3 +171,22 @@ export const outbox = pgTable(
   // relay poll: หา event ที่ยังไม่ processed เรียงเก่า→ใหม่ (FIFO)
   (t) => [index('ix_outbox_unprocessed').on(t.processedAt, t.createdAt)],
 );
+
+/**
+ * ChannelCredentials (Phase 4) — secret ต่อ channel (LINE channel access token + channel secret ฯลฯ)
+ * เก็บ **encrypted at rest**: `secretCipher` = AES-256-GCM ของ JSON credential blob (ดู crypto.ts)
+ * 1:1 กับ channel (channelId เป็น PK) · decrypt เฉพาะใน adapter ตอน verify webhook / push outbound
+ * ⚠️ ห้าม log plaintext · domain ไม่รู้จักตารางนี้ (credential เป็น infra ล้วน — ดู ADR-0004)
+ */
+export const channelCredentials = pgTable('channel_credentials', {
+  channelId: text('channel_id')
+    .primaryKey()
+    .references(() => channels.id, { onDelete: 'cascade' }),
+  workspaceId: text('workspace_id')
+    .notNull()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  /** ciphertext (v1.<iv>.<tag>.<ct>) ของ JSON credential — ไม่มี plaintext ใน DB */
+  secretCipher: text('secret_cipher').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
