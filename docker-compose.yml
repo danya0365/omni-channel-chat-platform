@@ -5,7 +5,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: omni
-      POSTGRES_PASSWORD: omni_dev_only
+      # dev default — override ได้ผ่าน env POSTGRES_PASSWORD · prod ต้องตั้งเอง (ห้ามใช้ default นี้)
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-omni_dev_only}
       POSTGRES_DB: omni
     ports:
       - '5432:5432'
