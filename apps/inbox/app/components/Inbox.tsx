@@ -1,11 +1,28 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { inboxWsUrl, listConversations, listMessages, reply, UnauthorizedError } from '../lib/api';
+import {
+  assignConversation,
+  closeConversation,
+  inboxWsUrl,
+  listConversations,
+  listMessages,
+  reopenConversation,
+  reply,
+  unassignConversation,
+  UnauthorizedError,
+} from '../lib/api';
 import { contentText } from '../lib/types';
-import type { AgentMessageEvent, Session, WireConversation, WireMessage } from '../lib/types';
+import type {
+  AgentEvent,
+  ConversationPatch,
+  Session,
+  WireConversation,
+  WireMessage,
+} from '../lib/types';
 
 type WsStatus = 'connecting' | 'online' | 'offline';
+type Filter = 'all' | 'mine' | 'unassigned';
 
 function timeLabel(iso: string): string {
   const d = new Date(iso);
@@ -14,24 +31,28 @@ function timeLabel(iso: string): string {
     : d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 }
 
-/** เอา event มาอัปเดต conversation ที่มีอยู่ (bump lastMessage + ดันขึ้นบน) — false ถ้าไม่พบสาย */
+/** ข้อความใหม่ → bump lastMessage + ดันสายขึ้นบน · false ถ้าไม่พบสาย (ต้อง refetch) */
 function bumpConversation(
   list: WireConversation[],
-  event: AgentMessageEvent,
+  conversationId: string,
+  message: WireMessage,
 ): { next: WireConversation[]; found: boolean } {
-  const idx = list.findIndex((c) => c.id === event.conversationId);
+  const idx = list.findIndex((c) => c.id === conversationId);
   const conv = list[idx];
   if (!conv) return { next: list, found: false };
   const updated: WireConversation = {
     ...conv,
-    lastMessageAt: event.message.at,
-    lastMessage: {
-      direction: event.message.direction,
-      content: event.message.content,
-      at: event.message.at,
-    },
+    lastMessageAt: message.at,
+    lastMessage: { direction: message.direction, content: message.content, at: message.at },
   };
   return { next: [updated, ...list.slice(0, idx), ...list.slice(idx + 1)], found: true };
+}
+
+/** upsert conversation (จาก conversation event) — แทนที่ในตำแหน่งเดิม หรือเติมบนสุดถ้าใหม่ */
+function upsertConversation(list: WireConversation[], conv: WireConversation): WireConversation[] {
+  const idx = list.findIndex((c) => c.id === conv.id);
+  if (idx === -1) return [conv, ...list];
+  return list.map((c) => (c.id === conv.id ? conv : c));
 }
 
 export function Inbox({ session, onLogout }: { session: Session; onLogout: () => void }) {
@@ -39,14 +60,17 @@ export function Inbox({ session, onLogout }: { session: Session; onLogout: () =>
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<WireMessage[]>([]);
   const [status, setStatus] = useState<WsStatus>('connecting');
+  const [filter, setFilter] = useState<Filter>('all');
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [acting, setActing] = useState(false);
 
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selectedId;
   const listEndRef = useRef<HTMLDivElement | null>(null);
 
   const { token } = session;
+  const me = session.agent.id;
 
   const handleAuthError = useCallback(
     (e: unknown) => {
@@ -67,12 +91,11 @@ export function Inbox({ session, onLogout }: { session: Session; onLogout: () =>
     }
   }, [token, handleAuthError]);
 
-  // โหลด conversation list ครั้งแรก
   useEffect(() => {
     void refreshConversations();
   }, [refreshConversations]);
 
-  // WS realtime + reconnect
+  // WS realtime (message + conversation) + reconnect
   useEffect(() => {
     let stopped = false;
     let socket: WebSocket | null = null;
@@ -85,25 +108,26 @@ export function Inbox({ session, onLogout }: { session: Session; onLogout: () =>
       socket = ws;
       ws.onopen = () => setStatus('online');
       ws.onmessage = (ev) => {
-        let event: AgentMessageEvent;
+        let event: AgentEvent;
         try {
-          const parsed = JSON.parse(String(ev.data)) as AgentMessageEvent;
-          if (parsed.type !== 'message') return;
-          event = parsed;
+          event = JSON.parse(String(ev.data)) as AgentEvent;
         } catch {
           return;
         }
-        // อัปเดต conversation list (bump) · ถ้าเป็นสายใหม่ที่ยังไม่มี → refetch
-        setConversations((prev) => {
-          const { next, found } = bumpConversation(prev, event);
-          if (!found) void refreshConversations();
-          return next;
-        });
-        // ถ้าเปิดสายนี้อยู่ → append (dedupe by id)
-        if (event.conversationId === selectedIdRef.current) {
-          setMessages((prev) =>
-            prev.some((m) => m.id === event.message.id) ? prev : [...prev, event.message],
-          );
+        if (event.type === 'message') {
+          setConversations((prev) => {
+            const { next, found } = bumpConversation(prev, event.conversationId, event.message);
+            if (!found) void refreshConversations();
+            return next;
+          });
+          if (event.conversationId === selectedIdRef.current) {
+            setMessages((prev) =>
+              prev.some((m) => m.id === event.message.id) ? prev : [...prev, event.message],
+            );
+          }
+        } else if (event.type === 'conversation') {
+          // assign/close ฯลฯ จาก agent อื่น → sync สาย
+          setConversations((prev) => upsertConversation(prev, event.conversation));
         }
       };
       ws.onclose = () => {
@@ -121,7 +145,6 @@ export function Inbox({ session, onLogout }: { session: Session; onLogout: () =>
     };
   }, [token, refreshConversations]);
 
-  // auto-scroll ลงล่างสุดเมื่อมีข้อความใหม่
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -133,8 +156,7 @@ export function Inbox({ session, onLogout }: { session: Session; onLogout: () =>
       setDraft('');
       try {
         const history = await listMessages(token, id);
-        // api คืนใหม่→เก่า · แสดง chat เก่า→ใหม่ (บนลงล่าง)
-        setMessages(history.slice().reverse());
+        setMessages(history.slice().reverse()); // api ใหม่→เก่า · แสดงเก่า→ใหม่
       } catch (e) {
         handleAuthError(e);
       }
@@ -150,20 +172,60 @@ export function Inbox({ session, onLogout }: { session: Session; onLogout: () =>
     setSending(true);
     try {
       const msg = await reply(token, selectedId, text);
-      // append ทันที (dedupe) — WS echo จะซ้ำ id เดิม เลยไม่เพิ่มซ้ำ
       setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
     } catch (e) {
-      if (!handleAuthError(e)) setDraft(text); // คืน draft ให้พิมพ์ใหม่
+      if (!handleAuthError(e)) setDraft(text);
     } finally {
       setSending(false);
     }
   }
 
+  /** run action (assign/unassign/close/reopen) → merge patch เข้า conversation (WS จะ sync ซ้ำ, idempotent) */
+  async function runAction(action: (t: string, id: string) => Promise<ConversationPatch>) {
+    if (!selectedId) return;
+    setActing(true);
+    try {
+      const patch = await action(token, selectedId);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === patch.id ? { ...c, status: patch.status, assignee: patch.assignee } : c,
+        ),
+      );
+    } catch (e) {
+      if (!handleAuthError(e)) void refreshConversations();
+    } finally {
+      setActing(false);
+    }
+  }
+
+  const filtered = conversations.filter((c) => {
+    if (filter === 'mine') return c.assignee?.kind === 'agent' && c.assignee.agentId === me;
+    if (filter === 'unassigned') return c.assignee === null;
+    return true;
+  });
   const selectedConv = conversations.find((c) => c.id === selectedId) ?? null;
+  const mineSelected =
+    selectedConv?.assignee?.kind === 'agent' && selectedConv.assignee.agentId === me;
+
+  function assigneeBadge(c: WireConversation): { label: string; className: string } | null {
+    if (c.status === 'closed') return { label: 'ปิดแล้ว', className: 'bg-zinc-200 text-zinc-500' };
+    if (!c.assignee) return { label: 'ยังไม่รับ', className: 'bg-amber-100 text-amber-700' };
+    if (c.assignee.kind === 'agent')
+      return c.assignee.agentId === me
+        ? { label: 'ของฉัน', className: 'bg-violet-100 text-violet-700' }
+        : { label: 'มอบหมายแล้ว', className: 'bg-sky-100 text-sky-700' };
+    return { label: 'บอท', className: 'bg-zinc-100 text-zinc-500' };
+  }
+
+  const FILTERS: Array<{ key: Filter; label: string }> = [
+    { key: 'all', label: 'ทั้งหมด' },
+    { key: 'mine', label: 'ของฉัน' },
+    { key: 'unassigned', label: 'ยังไม่รับ' },
+  ];
 
   return (
     <div className="flex h-full flex-1 overflow-hidden bg-zinc-50 dark:bg-zinc-950">
-      {/* sidebar: conversation list */}
+      {/* sidebar */}
       <aside className="flex w-80 shrink-0 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <header className="flex items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
           <div>
@@ -195,44 +257,109 @@ export function Inbox({ session, onLogout }: { session: Session; onLogout: () =>
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto">
-          {conversations.length === 0 && (
-            <p className="px-4 py-6 text-center text-sm text-zinc-400">ยังไม่มีสนทนา</p>
-          )}
-          {conversations.map((c) => (
+        {/* filter tabs */}
+        <div className="flex gap-1 border-b border-zinc-100 px-3 py-2 dark:border-zinc-800">
+          {FILTERS.map((f) => (
             <button
-              key={c.id}
-              onClick={() => void selectConversation(c.id)}
-              className={`flex w-full flex-col gap-0.5 border-b border-zinc-100 px-4 py-3 text-left transition hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800 ${
-                c.id === selectedId ? 'bg-violet-50 dark:bg-zinc-800' : ''
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                filter === f.key
+                  ? 'bg-violet-600 text-white'
+                  : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800'
               }`}
             >
-              <div className="flex items-center justify-between">
-                <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                  {c.contactName ?? 'ไม่ทราบชื่อ'}
-                </span>
-                <span className="ml-2 shrink-0 text-[11px] text-zinc-400">
-                  {timeLabel(c.lastMessageAt)}
-                </span>
-              </div>
-              <span className="truncate text-xs text-zinc-500">
-                {c.lastMessage
-                  ? `${c.lastMessage.direction === 'outbound' ? 'คุณ: ' : ''}${contentText(c.lastMessage.content)}`
-                  : '—'}
-              </span>
+              {f.label}
             </button>
           ))}
         </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {filtered.length === 0 && (
+            <p className="px-4 py-6 text-center text-sm text-zinc-400">ไม่มีสนทนาในหมวดนี้</p>
+          )}
+          {filtered.map((c) => {
+            const badge = assigneeBadge(c);
+            return (
+              <button
+                key={c.id}
+                onClick={() => void selectConversation(c.id)}
+                className={`flex w-full flex-col gap-0.5 border-b border-zinc-100 px-4 py-3 text-left transition hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800 ${
+                  c.id === selectedId ? 'bg-violet-50 dark:bg-zinc-800' : ''
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    {c.contactName ?? 'ไม่ทราบชื่อ'}
+                  </span>
+                  <span className="ml-2 shrink-0 text-[11px] text-zinc-400">
+                    {timeLabel(c.lastMessageAt)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-xs text-zinc-500">
+                    {c.lastMessage
+                      ? `${c.lastMessage.direction === 'outbound' ? 'คุณ: ' : ''}${contentText(c.lastMessage.content)}`
+                      : '—'}
+                  </span>
+                  {badge && (
+                    <span
+                      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${badge.className}`}
+                    >
+                      {badge.label}
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
       </aside>
 
-      {/* main: conversation view */}
+      {/* main */}
       <section className="flex flex-1 flex-col">
         {selectedConv ? (
           <>
-            <header className="border-b border-zinc-200 bg-white px-5 py-3 dark:border-zinc-800 dark:bg-zinc-900">
+            <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-5 py-3 dark:border-zinc-800 dark:bg-zinc-900">
               <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
                 {selectedConv.contactName ?? 'ไม่ทราบชื่อ'}
               </p>
+              <div className="flex gap-2">
+                {mineSelected ? (
+                  <button
+                    onClick={() => void runAction(unassignConversation)}
+                    disabled={acting}
+                    className="rounded-lg border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300"
+                  >
+                    คืนสาย
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => void runAction(assignConversation)}
+                    disabled={acting}
+                    className="rounded-lg bg-violet-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-violet-700 disabled:opacity-50"
+                  >
+                    รับเรื่อง
+                  </button>
+                )}
+                {selectedConv.status === 'open' ? (
+                  <button
+                    onClick={() => void runAction(closeConversation)}
+                    disabled={acting}
+                    className="rounded-lg border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300"
+                  >
+                    ปิดสาย
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => void runAction(reopenConversation)}
+                    disabled={acting}
+                    className="rounded-lg border border-zinc-300 px-3 py-1 text-xs font-medium text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300"
+                  >
+                    เปิดใหม่
+                  </button>
+                )}
+              </div>
             </header>
 
             <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-5 py-4">

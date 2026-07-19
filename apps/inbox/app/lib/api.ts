@@ -1,7 +1,7 @@
 // API client ของ inbox — คุย apps/api ผ่าน HTTP + WS เท่านั้น (ไม่แตะ DB ตรง)
 // token เก็บใน localStorage (public identifier ฝั่ง client — ไม่มี secret ในบันเดิล)
 
-import type { AuthAgent, Session, WireConversation, WireMessage } from './types';
+import type { AuthAgent, ConversationPatch, Session, WireConversation, WireMessage } from './types';
 
 export const API_ORIGIN = process.env.NEXT_PUBLIC_API_ORIGIN ?? 'http://localhost:3001';
 
@@ -71,3 +71,24 @@ export async function reply(
   const body = (await res.json()) as { message: WireMessage; delivered: boolean };
   return body.message;
 }
+
+/** assign/unassign/close/reopen conversation (Phase 4) → คืน patch (id/status/assignee) */
+async function manageAction(
+  token: string,
+  conversationId: string,
+  action: 'assign' | 'unassign' | 'close' | 'reopen',
+): Promise<ConversationPatch> {
+  const res = await fetch(`${API_ORIGIN}/inbox/conversations/${conversationId}/${action}`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) throw new UnauthorizedError();
+  if (!res.ok) throw new Error(`${action} failed: ${res.status}`);
+  return ((await res.json()) as { conversation: ConversationPatch }).conversation;
+}
+
+export const assignConversation = (token: string, id: string) => manageAction(token, id, 'assign');
+export const unassignConversation = (token: string, id: string) =>
+  manageAction(token, id, 'unassign');
+export const closeConversation = (token: string, id: string) => manageAction(token, id, 'close');
+export const reopenConversation = (token: string, id: string) => manageAction(token, id, 'reopen');
