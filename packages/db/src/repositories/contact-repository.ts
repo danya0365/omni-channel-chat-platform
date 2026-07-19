@@ -1,14 +1,14 @@
 import { and, eq } from 'drizzle-orm';
 import { contactIdentitySchema, contactSchema } from '@omni/domain';
 import type { ContactRepository } from '@omni/domain';
-import type { Database } from '../client';
+import type { Executor } from '../client';
 import { contactIdentities, contacts } from '../schema';
 
 /**
  * ContactRepository (Postgres) — resolve/สร้าง contact ตาม key ช่องทาง
  * DB→domain map ผ่าน zod parse (validate + brand id ที่ boundary) · scope workspaceId ทุก query
  */
-export function createContactRepository(db: Database): ContactRepository {
+export function createContactRepository(db: Executor): ContactRepository {
   return {
     findByChannelIdentity: async (workspaceId, channelId, externalId) => {
       const rows = await db

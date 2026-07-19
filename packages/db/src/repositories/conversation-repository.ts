@@ -1,11 +1,11 @@
 import { and, desc, eq } from 'drizzle-orm';
 import { conversationSchema } from '@omni/domain';
 import type { ConversationRepository } from '@omni/domain';
-import type { Database } from '../client';
+import type { Executor } from '../client';
 import { conversations } from '../schema';
 
 /** ConversationRepository (Postgres) — scope workspaceId ทุก query */
-export function createConversationRepository(db: Database): ConversationRepository {
+export function createConversationRepository(db: Executor): ConversationRepository {
   return {
     findLatestOpen: async (workspaceId, contactId, channelId) => {
       const rows = await db

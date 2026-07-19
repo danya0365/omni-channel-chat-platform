@@ -129,3 +129,45 @@ export const messages = pgTable(
   },
   (t) => [index('ix_messages_conversation').on(t.workspaceId, t.conversationId, t.createdAt)],
 );
+
+/**
+ * Agent = ทีมงานที่ login เข้า inbox (Phase 3) · passwordHash เก็บที่นี่ (infra) — domain ไม่รู้จัก
+ * ⚠️ MVP: email unique ทั้งระบบ (จุด login resolve จาก email ก่อนรู้ workspace) — ดู AgentRepository
+ */
+export const agents = pgTable(
+  'agents',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    email: text('email').notNull(),
+    passwordHash: text('password_hash').notNull(),
+    displayName: text('display_name').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('ux_agents_email').on(t.email)],
+);
+
+/**
+ * Outbox = transactional outbox — เขียน domain event ใน tx เดียวกับ business write (กัน event หายตอน crash)
+ * relay/worker (pg-boss) อ่านแถวที่ยังไม่ processed → fan-out เข้า agent WS → mark processed
+ * payload = event แบบ JSON-safe (occurredAt เป็น ISO string) · ⚠️ ห้ามใส่ PII เกินจำเป็น (เก็บแค่ ids)
+ */
+export const outbox = pgTable(
+  'outbox',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    /** null = ยังไม่ประมวลผล · มีค่า = fan-out แล้ว (relay ข้าม) */
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+  },
+  // relay poll: หา event ที่ยังไม่ processed เรียงเก่า→ใหม่ (FIFO)
+  (t) => [index('ix_outbox_unprocessed').on(t.processedAt, t.createdAt)],
+);

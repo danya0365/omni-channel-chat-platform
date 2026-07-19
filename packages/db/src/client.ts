@@ -5,6 +5,13 @@ import * as schema from './schema';
 /** drizzle instance ผูกกับ schema ทั้งหมด (typed queries) */
 export type Database = NodePgDatabase<typeof schema>;
 
+/**
+ * Executor — pool-bound db **หรือ** transaction handle
+ * repository รับ type นี้เพื่อทำงานได้ทั้ง 2 แบบ: ปกติยิงบน pool · เมื่ออยู่ใน `db.transaction()` ยิงบน tx
+ * → ทำ transactional outbox ได้ (business write + outbox insert อยู่ tx เดียวกัน)
+ */
+export type Executor = Database | Parameters<Parameters<Database['transaction']>[0]>[0];
+
 export interface DbHandle {
   db: Database;
   pool: Pool;

@@ -6,7 +6,13 @@ import type { IdGenerator } from '../ids';
 import { err, ok } from '../result';
 import type { Conversation } from '../schema/conversation';
 import type { Message } from '../schema/message';
-import type { ConversationRepository, MessageRepository, OutboundGateway } from '../ports';
+import type {
+  ConversationRepository,
+  DomainEvent,
+  EventBus,
+  MessageRepository,
+  OutboundGateway,
+} from '../ports';
 
 /** conversation ตั้งต้น (open) สำหรับ outbound ยิงเข้า */
 const seededConversation: Conversation = {
@@ -33,6 +39,7 @@ function setup(
     conversations: [...seed] as Conversation[],
     messages: [] as Message[],
     sent: [] as Message[],
+    events: [] as DomainEvent[],
   };
 
   const conversations: ConversationRepository = {
@@ -63,12 +70,18 @@ function setup(
     },
   };
 
+  const events: EventBus = {
+    publish: async (event) => {
+      store.events.push(event);
+    },
+  };
+
   let idCounter = 0;
   const generateId: IdGenerator = (prefix) => makeId(prefix, `t${(idCounter += 1)}`);
   let tick = 1;
   const now = () => new Date(Date.UTC(2026, 0, 1, 0, 0, tick++));
 
-  const deps: SendOutboundDeps = { conversations, messages, outbound, generateId, now };
+  const deps: SendOutboundDeps = { conversations, messages, outbound, events, generateId, now };
   return { store, deps, send: createSendOutboundMessage(deps) };
 }
 
@@ -101,6 +114,14 @@ describe('sendOutboundMessage', () => {
     expect(store.sent).toHaveLength(1);
     const conv = store.conversations.find((c) => c.id === 'conv_1');
     expect(conv?.lastMessageAt.getTime()).toBeGreaterThan(conv?.createdAt.getTime() ?? 0);
+
+    // publish outbound_message.sent (→ agent inbox realtime) ชี้ message ที่เพิ่ง persist
+    expect(store.events).toHaveLength(1);
+    expect(store.events[0]).toMatchObject({
+      type: 'outbound_message.sent',
+      conversationId: 'conv_1',
+      messageId: msg?.id,
+    });
   });
 
   it('ปลายทาง offline (ไม่มี socket) → ยัง persist + ส่ง แต่ delivered=false (ไม่ใช่ error)', async () => {
@@ -166,8 +187,10 @@ describe('sendOutboundMessage', () => {
     expect(res.ok).toBe(false);
     if (res.ok) return;
     expect(res.error.code).toBe('send_failed');
-    // persist ก่อนส่ง — message เป็นความจริงแม้ช่องทางล้ม
+    // persist ก่อนส่ง — message เป็นความจริงแม้ช่องทางล้ม + event ก็ publish แล้ว (agent เห็น reply)
     expect(store.messages).toHaveLength(1);
     expect(store.sent).toHaveLength(0);
+    expect(store.events).toHaveLength(1);
+    expect(store.events[0]?.type).toBe('outbound_message.sent');
   });
 });

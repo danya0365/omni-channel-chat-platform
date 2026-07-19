@@ -1,11 +1,12 @@
 import { z } from 'zod';
 import { idSchema } from './ids';
-import type { WorkspaceId, ChannelId, ContactId, ConversationId } from './ids';
+import type { WorkspaceId, ChannelId, ContactId, ConversationId, MessageId, AgentId } from './ids';
 import type { Result } from './result';
+import type { Agent } from './schema/agent';
 import type { Channel } from './schema/channel';
 import type { Contact, ContactIdentity } from './schema/contact';
 import type { Conversation } from './schema/conversation';
-import type { Message } from './schema/message';
+import type { Message, MessageContent, MessageDirection } from './schema/message';
 
 /**
  * ChannelRepository — resolve channel จาก id
@@ -68,6 +69,63 @@ export interface MessageRepository {
   insert(workspaceId: WorkspaceId, message: Message): Promise<void>;
 }
 
+/**
+ * AgentRepository — resolve agent (ทีมงาน) · Phase 3 auth + inbox
+ *
+ * ⚠️ `findCredentialByEmail` เป็นข้อยกเว้น multi-tenant (คล้าย `ChannelRepository.findPublicById`):
+ * จุดเข้า login ยังไม่รู้ว่า agent อยู่ workspace ไหน — resolve จาก email แล้ว **สถาปนา workspace context**
+ * จาก `agent.workspaceId` (MVP: email unique ทั้งระบบ · ถ้าวันหลัง email ซ้ำข้าม workspace ต้องมี workspace selector)
+ * คืน `passwordHash` ให้ auth layer (apps/api) verify — domain ไม่ hash/verify เอง (เป็น infra)
+ */
+export interface AgentRepository {
+  findById(workspaceId: WorkspaceId, agentId: AgentId): Promise<Agent | null>;
+  findCredentialByEmail(email: string): Promise<{ agent: Agent; passwordHash: string } | null>;
+}
+
+/** ---- Inbox read-model (Phase 3: agent inbox — query ล้วน ไม่มี business logic) ---- */
+
+/** สรุป conversation หนึ่งแถวใน inbox list (conversation + ชื่อ contact + ข้อความล่าสุด) */
+export interface ConversationListItem {
+  conversation: Conversation;
+  /** ชื่อ contact (null ถ้าช่องทางไม่ให้ชื่อ) */
+  contactName: string | null;
+  /** ข้อความล่าสุดของสาย (null ถ้าสายยังไม่มีข้อความ — ปกติมีเสมอ) */
+  lastMessage: {
+    direction: MessageDirection;
+    content: MessageContent;
+    createdAt: Date;
+  } | null;
+}
+
+/** ตัวเลือก paginate แบบ cursor ด้วยเวลา (เลื่อนดูของเก่าลงไป) */
+export interface InboxPageOptions {
+  limit: number;
+  /** เอาเฉพาะที่เก่ากว่าเวลานี้ (cursor) — undefined = หน้าแรก (ใหม่สุด) */
+  before?: Date;
+}
+
+/**
+ * InboxReadRepository — read-model สำหรับ agent inbox
+ * ทุก method scope ด้วย `workspaceId` (agent เห็นเฉพาะ workspace ตัวเอง — กัน cross-tenant)
+ */
+export interface InboxReadRepository {
+  /** conversation ใน workspace เรียงใหม่→เก่า (by lastMessageAt) */
+  listConversations(
+    workspaceId: WorkspaceId,
+    options: InboxPageOptions,
+  ): Promise<ConversationListItem[]>;
+
+  /** ข้อความในสายหนึ่ง เรียงใหม่→เก่า (by createdAt) · scope workspace กันดูข้ามสาย/ข้าม tenant */
+  listMessages(
+    workspaceId: WorkspaceId,
+    conversationId: ConversationId,
+    options: InboxPageOptions,
+  ): Promise<Message[]>;
+
+  /** หา message รายตัวจาก id (scope workspace) — consumer ใช้ประกอบ event ตอน fan-out realtime */
+  getMessageById(workspaceId: WorkspaceId, messageId: MessageId): Promise<Message | null>;
+}
+
 /** ผลลัพธ์การส่ง outbound จาก provider */
 export interface OutboundReceipt {
   /** id ที่ provider คืนมา (ไว้ trace/dedup) — null ถ้าไม่มี (เช่น web ไม่มี provider id) */
@@ -102,6 +160,15 @@ export const domainEventSchema = z.discriminatedUnion('type', [
     channelId: idSchema('chn'),
     conversationId: idSchema('conv'),
     contactId: idSchema('ctc'),
+    messageId: idSchema('msg'),
+    occurredAt: z.date(),
+  }),
+  // agent/bot ตอบกลับ → agent inbox คนอื่นใน workspace เห็น sync (consumer re-fetch message ตาม id)
+  z.object({
+    type: z.literal('outbound_message.sent'),
+    workspaceId: idSchema('ws'),
+    channelId: idSchema('chn'),
+    conversationId: idSchema('conv'),
     messageId: idSchema('msg'),
     occurredAt: z.date(),
   }),

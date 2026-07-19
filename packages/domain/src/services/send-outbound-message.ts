@@ -5,13 +5,19 @@ import { err, ok } from '../result';
 import type { Result } from '../result';
 import { messageContentSchema, messageSenderSchema } from '../schema/message';
 import type { Message } from '../schema/message';
-import type { ConversationRepository, MessageRepository, OutboundGateway } from '../ports';
+import type {
+  ConversationRepository,
+  EventBus,
+  MessageRepository,
+  OutboundGateway,
+} from '../ports';
 
 /** deps ที่ service ต้องใช้ — wire ที่ composition root (apps/api) */
 export interface SendOutboundDeps {
   conversations: ConversationRepository;
   messages: MessageRepository;
   outbound: OutboundGateway;
+  events: EventBus;
   generateId: IdGenerator;
   now: Clock;
 }
@@ -51,7 +57,7 @@ export type SendOutboundError =
  * infra error (db ล่ม) = throw ตามปกติ (api map เป็น 5xx)
  */
 export function createSendOutboundMessage(deps: SendOutboundDeps) {
-  const { conversations, messages, outbound, generateId, now } = deps;
+  const { conversations, messages, outbound, events, generateId, now } = deps;
 
   return async function sendOutboundMessage(
     input: SendOutboundCommand,
@@ -90,7 +96,18 @@ export function createSendOutboundMessage(deps: SendOutboundDeps) {
     await messages.insert(workspaceId, message);
     await conversations.touch(workspaceId, conversationId, at);
 
-    // 3. ส่งออกช่องทาง (web = push เข้า WS ของ session ที่ต่ออยู่)
+    // 3. publish event (→ outbox ใน tx เดียวกับ persist ที่ wiring) — agent inbox คนอื่นเห็น reply sync
+    //    วางก่อนยิงช่องทาง: message persist แล้ว = ความจริง แม้ delivery ปลายทางจะล้มก็ตาม
+    await events.publish({
+      type: 'outbound_message.sent',
+      workspaceId,
+      channelId,
+      conversationId,
+      messageId: message.id,
+      occurredAt: at,
+    });
+
+    // 4. ส่งออกช่องทาง (web = push เข้า WS ของ session ที่ต่ออยู่)
     const receipt = await outbound.send(message);
     if (!receipt.ok) {
       // ช่องทางล้มจริง — message ยัง persist ไว้ (สถานะ sent) · caller ตัดสินใจ retry ระดับบน
