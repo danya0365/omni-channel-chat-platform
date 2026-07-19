@@ -39,7 +39,7 @@ metadata:
 ## Roadmap (5 phase)
 
 1. ✅ **Phase 1** — stack skeleton + gate + CI + ADR (เสร็จ: gate เขียว, api `/healthz`, inbox/widget build ผ่าน)
-2. **Phase 2** — unified message model (`@omni/domain`) + web widget channel end-to-end (inbound→persist→outbound realtime)
-3. **Phase 3** — agent inbox ขั้นต่ำ (conversation list + reply + realtime) + auth ขั้นต่ำ
-4. **Phase 4** — routing/assignment + LINE channel (HMAC verify, reply/push, `/new-channel line`)
+2. ✅ **Phase 2** — unified message model (`@omni/domain`) + web widget channel end-to-end (inbound→persist→outbound realtime)
+3. ✅ **Phase 3** — agent inbox (list + reply + realtime) + auth ขั้นต่ำ (verify loop เต็ม · ดู [[phase-3-progress]])
+4. **Phase 4** — routing/assignment + LINE channel (HMAC verify, reply/push, `/new-channel line`) ← ต่อไป
 5. **Phase 5** — bot/automation (keyword → canned → escalate) + AI reply (Claude API, ADR แยก, ปม PII)

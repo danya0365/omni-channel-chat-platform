@@ -21,11 +21,14 @@
 
 ## Modules
 
-<!-- service/module ภายใน เช่น routing, inbox, bot-engine — ยังไม่มี -->
+- **agent inbox** (Phase 3) — Next 16 UI (`apps/inbox`) + api `/inbox/*` routes + agent WS realtime (key=workspaceId) · ดู [[phase-3-progress]]
+- **realtime pipeline** (Phase 3) — transactional outbox → immediate drain → fan-out agent WS + pg-boss relay · ดู [[adr-0003-phase-3-inbox-realtime-auth]]
+- **auth** (Phase 3) — signed-session (scrypt+HMAC, zero-dep) ฝัง workspaceId ใน token
 
 ## Working Log
 
-- [Phase 2 Progress](log/phase-2-progress.md) — สถานะ Phase 2 (domain+db เสร็จ, ต่อ item 5 channel-web+api+WS) + วิธีรัน + decision ที่ล็อก (อ่านตอนเปิด session)
+- [Phase 3 Progress](log/phase-3-progress.md) — **active** — Phase 3 เสร็จครบ (agent inbox realtime + auth) + วิธีรัน loop + decision + ต่อ Phase 4 (อ่านตอนเปิด session)
+- [Phase 2 Progress](log/phase-2-progress.md) — Phase 2 จบแล้ว (web channel e2e) — archive ได้
 
 ## Reference
 

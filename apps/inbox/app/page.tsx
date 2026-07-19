@@ -1,10 +1,17 @@
+'use client';
+
+import { useSyncExternalStore } from 'react';
+import { Inbox } from './components/Inbox';
+import { LoginForm } from './components/LoginForm';
+import { getServerSnapshot, getSnapshot, setSession, subscribe } from './lib/session-store';
+
 export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <h1>Omni Inbox</h1>
-        <p>Agent inbox placeholder — Phase 3 จะใส่ conversation list + reply box + realtime</p>
-      </main>
-    </div>
+  // อ่าน session จาก localStorage แบบ SSR-safe (server = null → hydrate ตรงกัน แล้วค่อยอัปเดตฝั่ง client)
+  const session = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+
+  return session ? (
+    <Inbox session={session} onLogout={() => setSession(null)} />
+  ) : (
+    <LoginForm onLogin={setSession} />
   );
 }
