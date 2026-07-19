@@ -6,6 +6,7 @@ import type {
   createIngestInboundMessage,
   createSendOutboundMessage,
 } from '@omni/domain';
+import type { LineCredentialResolver } from '@omni/channel-line';
 import type { AuthService } from './auth/service';
 import type { ConnectionRegistry } from './registry';
 
@@ -33,4 +34,6 @@ export interface AppDeps {
   auth: AuthService;
   /** สร้าง sessionId ใหม่ (สุ่ม) — inject เพื่อ test deterministic + แยก crypto ออกจาก route */
   newSessionId: () => string;
+  /** resolve LINE credentials (decrypt) — webhook route ใช้ verify x-line-signature (Phase 4) */
+  lineCredentials: LineCredentialResolver;
 }

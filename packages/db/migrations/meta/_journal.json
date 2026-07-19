@@ -15,6 +15,13 @@
       "when": 1784421782182,
       "tag": "0001_tricky_darkstar",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784469508549,
+      "tag": "0002_shiny_xavin",
+      "breakpoints": true
     }
   ]
 }

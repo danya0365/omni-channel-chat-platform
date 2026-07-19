@@ -18,8 +18,15 @@ async function main(): Promise<void> {
   if (!env.AUTH_SESSION_SECRET) {
     console.warn('AUTH_SESSION_SECRET ไม่ได้ตั้ง — ใช้ dev secret default (อย่าใช้ใน production)');
   }
+  if (!env.CHANNEL_ENCRYPTION_KEY) {
+    console.warn('CHANNEL_ENCRYPTION_KEY ไม่ได้ตั้ง — ใช้ dev key default (อย่าใช้ใน production)');
+  }
 
-  const container = createContainer({ databaseUrl, authSecret });
+  const container = createContainer({
+    databaseUrl,
+    authSecret,
+    channelEncryptionKey: env.CHANNEL_ENCRYPTION_KEY,
+  });
   const app = await buildApp(container.deps);
 
   // เริ่ม pg-boss relay (safety net) — ถ้าล้ม realtime ยังทำงานผ่าน immediate drain จึงแค่ warn ไม่ crash

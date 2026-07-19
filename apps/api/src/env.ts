@@ -6,6 +6,11 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url().optional(),
   /** secret สำหรับ sign session token — prod ต้องตั้ง (dev มี default + warning ใน server.ts) */
   AUTH_SESSION_SECRET: z.string().min(16).optional(),
+  /**
+   * key เข้ารหัส channel credential (LINE ฯลฯ) — hex 64 ตัว หรือ base64 ของ 32 byte
+   * prod ต้องตั้ง (dev มี default + warning ใน server.ts) · rotate = ต้อง re-encrypt (ดู ADR-0004)
+   */
+  CHANNEL_ENCRYPTION_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
