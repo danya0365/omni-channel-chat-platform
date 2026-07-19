@@ -61,6 +61,8 @@ function setup() {
       const conv = store.conversations.find((c) => c.id === conversationId);
       if (conv) conv.lastMessageAt = lastMessageAt;
     },
+    setAssignee: async () => {},
+    setStatus: async () => {},
   };
 
   const messages: MessageRepository = {

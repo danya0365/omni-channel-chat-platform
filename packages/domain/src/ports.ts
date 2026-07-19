@@ -5,7 +5,7 @@ import type { Result } from './result';
 import type { Agent } from './schema/agent';
 import type { Channel } from './schema/channel';
 import type { Contact, ContactIdentity } from './schema/contact';
-import type { Conversation } from './schema/conversation';
+import type { Assignee, Conversation, ConversationStatus } from './schema/conversation';
 import type { Message, MessageContent, MessageDirection } from './schema/message';
 
 /**
@@ -62,6 +62,20 @@ export interface ConversationRepository {
     workspaceId: WorkspaceId,
     conversationId: ConversationId,
     lastMessageAt: Date,
+  ): Promise<void>;
+
+  /** ตั้ง/ถอด ผู้รับผิดชอบ (Phase 4 routing) — null = unassign */
+  setAssignee(
+    workspaceId: WorkspaceId,
+    conversationId: ConversationId,
+    assignee: Assignee | null,
+  ): Promise<void>;
+
+  /** เปลี่ยนสถานะสาย (open/closed) */
+  setStatus(
+    workspaceId: WorkspaceId,
+    conversationId: ConversationId,
+    status: ConversationStatus,
   ): Promise<void>;
 }
 
@@ -124,6 +138,12 @@ export interface InboxReadRepository {
 
   /** หา message รายตัวจาก id (scope workspace) — consumer ใช้ประกอบ event ตอน fan-out realtime */
   getMessageById(workspaceId: WorkspaceId, messageId: MessageId): Promise<Message | null>;
+
+  /** หา conversation หนึ่งแถวแบบ list-item (scope workspace) — consumer ใช้ push conversation.updated */
+  getConversationListItem(
+    workspaceId: WorkspaceId,
+    conversationId: ConversationId,
+  ): Promise<ConversationListItem | null>;
 }
 
 /** ผลลัพธ์การส่ง outbound จาก provider */
@@ -170,6 +190,14 @@ export const domainEventSchema = z.discriminatedUnion('type', [
     channelId: idSchema('chn'),
     conversationId: idSchema('conv'),
     messageId: idSchema('msg'),
+    occurredAt: z.date(),
+  }),
+  // conversation เปลี่ยน (assign/unassign/close/reopen — Phase 4) → agent เห็น badge/สถานะ sync
+  // consumer re-fetch conversation list-item ตาม id (ไม่มี messageId)
+  z.object({
+    type: z.literal('conversation.updated'),
+    workspaceId: idSchema('ws'),
+    conversationId: idSchema('conv'),
     occurredAt: z.date(),
   }),
 ]);

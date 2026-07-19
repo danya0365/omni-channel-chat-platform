@@ -88,5 +88,40 @@ export function createInboxReadRepository(db: Executor): InboxReadRepository {
       const row = rows[0];
       return row ? messageSchema.parse(row) : null;
     },
+
+    getConversationListItem: async (workspaceId, conversationId) => {
+      const rows = await db
+        .select({ conversation: conversations, contactName: contacts.displayName })
+        .from(conversations)
+        .innerJoin(contacts, eq(conversations.contactId, contacts.id))
+        .where(
+          and(eq(conversations.workspaceId, workspaceId), eq(conversations.id, conversationId)),
+        )
+        .limit(1);
+      const row = rows[0];
+      if (!row) return null;
+
+      const lastRows = await db
+        .select()
+        .from(messages)
+        .where(
+          and(eq(messages.workspaceId, workspaceId), eq(messages.conversationId, conversationId)),
+        )
+        .orderBy(desc(messages.createdAt))
+        .limit(1);
+      const last = lastRows[0];
+
+      return {
+        conversation: conversationSchema.parse(row.conversation),
+        contactName: row.contactName ?? null,
+        lastMessage: last
+          ? {
+              direction: last.direction,
+              content: messageContentSchema.parse(last.content),
+              createdAt: last.createdAt,
+            }
+          : null,
+      };
+    },
   };
 }
