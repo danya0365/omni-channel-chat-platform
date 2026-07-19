@@ -39,7 +39,10 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await seedHandle.db.execute(sql`truncate table ${workspaces} restart identity cascade`);
-  container = createContainer(DATABASE_URL);
+  container = createContainer({
+    databaseUrl: DATABASE_URL,
+    authSecret: 'integration-test-secret-16+',
+  });
   app = await buildApp(container.deps);
   await app.listen({ port: 0, host: '127.0.0.1' });
   const addr = app.server.address();

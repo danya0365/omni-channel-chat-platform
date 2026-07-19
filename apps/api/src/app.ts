@@ -2,6 +2,8 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import fastifyWebsocket from '@fastify/websocket';
 import fastifyCors from '@fastify/cors';
 import type { AppDeps } from './deps';
+import { registerAuthRoutes } from './routes/auth';
+import { registerInboxRoutes } from './routes/inbox';
 import { registerWebRoutes } from './routes/web';
 
 export type { AppDeps } from './deps';
@@ -22,6 +24,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   app.get('/healthz', () => ({ status: 'ok' }));
 
+  registerAuthRoutes(app, deps);
+  registerInboxRoutes(app, deps);
   registerWebRoutes(app, deps);
 
   return app;
