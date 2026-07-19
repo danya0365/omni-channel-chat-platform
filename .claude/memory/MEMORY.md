@@ -14,6 +14,7 @@
 - [0001 AI Agent Toolkit](decisions/0001-agent-toolkit.md) — ชุดเครื่องมือ Claude ในโปรเจค (persona/memory/hooks/rules/commands)
 - [0002 Stack & Repo Layout](decisions/0002-stack-and-repo-layout.md) — เคาะ stack (Node/TS, Fastify, Postgres+Drizzle, Next.js, WS) + โครง monorepo + multi-tenant + gate
 - [0003 Phase 3 Inbox Realtime + Auth](decisions/0003-phase-3-inbox-realtime-auth.md) — realtime ฝั่ง agent = transactional outbox + pg-boss (เปิด seam) · auth ขั้นต่ำ = signed-session (JWT ฝัง workspaceId)
+- [0004 Phase 4 Routing + LINE Channel](decisions/0004-phase-4-routing-and-line-channel.md) — routing = manual assign/close (verify ได้) · LINE = adapter mirror channel-web (HMAC, push) · credential เก็บ DB ต่อ channel แบบ encrypted (AES-GCM)
 
 ## Active Channels
 
@@ -27,7 +28,8 @@
 
 ## Working Log
 
-- [Phase 3 Progress](log/phase-3-progress.md) — **active** — Phase 3 เสร็จครบ (agent inbox realtime + auth) + วิธีรัน loop + decision + ต่อ Phase 4 (อ่านตอนเปิด session)
+- [Phase 4 Progress](log/phase-4-progress.md) — **active** — routing/assignment เสร็จ+verify · LINE channel (sub-phase B) ยังไม่เริ่ม ← ต่อตรงนี้
+- [Phase 3 Progress](log/phase-3-progress.md) — Phase 3 จบแล้ว (agent inbox realtime + auth) — archive ได้
 - [Phase 2 Progress](log/phase-2-progress.md) — Phase 2 จบแล้ว (web channel e2e) — archive ได้
 
 ## Reference
