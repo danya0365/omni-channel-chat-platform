@@ -20,7 +20,13 @@ metadata:
 - branch **`feature/phase-4-routing-line`** (แยกจาก PR Phase 1-3 ที่ `feature/phase-1-stack-skeleton`)
   - remote: `git@github.com:danya0365/omni-channel-chat-platform.git` · push แล้ว
 - **sub-phase A (routing/assignment) เสร็จ + verify ครบ** · **sub-phase B (LINE channel) ยังไม่เริ่ม** ← ต่อตรงนี้
-- gate เขียว **102 unit** + integration **20** · inbox build ผ่าน
+- gate เขียว **120 unit** + integration **20** · inbox build ผ่าน
+
+> **หมายเหตุ (2026-07-19): refactor inbox UI ทั้งชุด** — พี่ติงว่าโค้ด Next เละ (God component `Inbox.tsx` 419 บรรทัด +
+> react-hooks error ค้างที่ gate มองไม่เห็น). แตกเป็น `app/{lib,hooks,components/{ui,auth,inbox}}` (kebab-case) +
+> ui primitive (Button/TextInput) · wire inbox lint เข้า gate + eslint architecture rules (max-lines ฯลฯ).
+> path เก่าใน sub-phase A ด้านล่าง (`Inbox.tsx`) = stale — logic เดิมยังอยู่ครบ แค่ย้ายที่. ดู `.claude/rules/frontend-next.md` +
+> [[frontend-architecture-standard]]. **ยังไม่ verify browser หลัง refactor** (gate+build เขียว แต่ยังไม่ได้คลิกจริง)
 
 ## ✅ Sub-phase A — Routing/Assignment (เสร็จ)
 
