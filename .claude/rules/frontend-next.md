@@ -60,15 +60,25 @@ apps/inbox/
 - ปุ่ม/input ที่ style ซ้ำ → primitive ใน `ui/` (แยก utility เป็นกลุ่ม variant/size ไม่ให้ทับกัน — ไม่ต้องพึ่ง tailwind-merge)
 - **อย่าทำเกินหน้าที่** — component/hook/function ทำสิ่งเดียว (single responsibility) · อย่ายัด logic ไม่เกี่ยวเข้าไป
 
-## 4) React 19 / Server & Client Components
+## 4) React 19 · Server & Client Components · **data fetching = server-first**
 
-- default = **Server Component** · ใส่ `'use client'` เฉพาะไฟล์ที่ interactive จริง (มี state/effect/event/browser API)
-  แล้ว push directive ลงไปที่ leaf เพื่อลด client bundle (layout/shell ที่ static ให้เป็น server)
-- **ห้าม setState ใน effect เพื่อ fetch-on-mount** (`react-hooks/set-state-in-effect`) — โหลดข้อมูลจาก
-  event handler (คลิก) หรือ on-connect ของ subscription แทน · ดู `use-conversations`/`use-messages`
-- **ห้ามเขียน `ref.current` ตอน render** (`react-hooks/refs`) — อยากอ่านค่า/handler ล่าสุดใน callback ที่ไม่อยาก
-  re-subscribe ให้ใช้ `hooks/use-latest-ref.ts` (เขียน ref ใน effect)
+> **นโยบาย: server-first เป็น default** — ดึง/mutate ข้อมูลฝั่ง server (RSC / server action) ก่อนเสมอ ·
+> **client fetch = ข้อยกเว้นที่ต้อง justify** (ไม่ใช่ default). ที่มา: EGA fetch เกือบทั้งหมดฝั่ง server —
+> omni ยึดหลักเดียวกัน แต่ **backend เป็น Fastify แยก** → server action = **proxy ไป `apps/api`** (ห้ามแตะ DB ตรง · ต่างจาก EGA ที่เรียก Supabase ตรง)
+
+- **default = Server Component** — page/layout เป็น server · fetch initial data (list conversations, message history) ที่นี่
+  แล้วส่ง props ลง client component · ใส่ `'use client'` เฉพาะ **leaf** ที่ interactive จริง (push directive ลงล่างสุด ลด client bundle)
+- **mutation** — ที่ไม่ต้อง optimistic (assign/close/reopen/settings) → **server action** (proxy → apps/api) ·
+  ที่ต้อง optimistic (reply — ตอบแล้วขึ้นทันที) → client + WS echo
+- **client fetch อนุญาตเฉพาะ 3 กรณี — ต้องมี comment `// client-fetch: <เหตุผล>` กำกับทุกจุด:**
+  1. **realtime** subscription (WebSocket — หัวใจ inbox) · 2. **optimistic** update · 3. **interaction-driven** ที่ผูก browser state (infinite scroll, live filter)
+- **ห้าม setState ใน effect เพื่อ fetch-on-mount** (`react-hooks/set-state-in-effect`) — โหลดจาก event handler / on-connect แทน · ดู `use-conversations`/`use-messages`
+- **ห้ามเขียน `ref.current` ตอน render** (`react-hooks/refs`) — ใช้ `hooks/use-latest-ref.ts` (เขียน ref ใน effect)
 - realtime = WebSocket ไป `apps/api` จาก client (reconnect + auth token) · multi-tenant: session ผูก workspace, UI ไม่ข้าม tenant
+- ⚠️ **prerequisite ของ server-first:** server-side fetch ต้องมี token ฝั่ง server → auth ต้องย้าย **localStorage → httpOnly cookie**
+  (ตอนนี้ inbox realtime ยังใช้ localStorage token + client WS = **documented exception** · ทำ cookie ตอนแตะ RSC จริง แล้วเขียน ADR ใหม่)
+- **enforce = review (ไม่ใช่ tool-gate)** — static analysis แยก "client fetch ที่ถูก (realtime)" กับ "ขี้เกียจ" ไม่ได้ →
+  reviewer/AI เช็ค comment `// client-fetch:` ทุกจุด · ไม่มี justify = ต้องย้ายไป server
 
 ## 5) Enforce จริง — 3 เครื่องมือ แบ่งหน้าที่ (ไม่ใช่แค่ doc)
 
