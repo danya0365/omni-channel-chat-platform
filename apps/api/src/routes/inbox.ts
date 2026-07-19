@@ -29,7 +29,7 @@ const replyBodySchema = z.object({ text: z.string().min(1) });
  * ⚠️ workspaceId มาจาก token เท่านั้น (ไม่รับจาก client) — กัน cross-tenant
  */
 export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
-  const { auth, inboxRead, conversations, sendOutbound, manageConversation, agentRegistry } = deps;
+  const { auth, inboxRead, conversations, sendOutbound, agentRegistry } = deps;
 
   app.get<{ Querystring: { limit?: string; before?: string } }>(
     '/inbox/conversations',
@@ -102,8 +102,28 @@ export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
     },
   );
 
-  // ---- routing/assignment (Phase 4) — assign/unassign/close/reopen ----
-  // auth → validate → เรียก service → คืน patch (id/status/assignee) ให้ UI merge · event realtime sync agent อื่น
+  // routing/assignment (Phase 4) แยกเป็นกลุ่มของตัวเอง — กัน register function บวมเป็น God function
+  registerManageRoutes(app, deps);
+
+  app.get<{ Querystring: { token?: string } }>('/inbox/ws', { websocket: true }, (socket, req) => {
+    const ctx = authFromToken(req.query.token, auth);
+    if (!ctx) {
+      socket.close(1008, 'unauthorized');
+      return;
+    }
+    // register ใต้ workspaceId — consumer (pg-boss) จะ fan-out event ของ workspace นี้มาที่ key เดียวกัน
+    agentRegistry.add(ctx.workspaceId, socket);
+    socket.on('close', () => agentRegistry.remove(ctx.workspaceId, socket));
+  });
+}
+
+/**
+ * routing/assignment routes (Phase 4) — assign / unassign / close / reopen
+ * auth → validate → เรียก service → คืน patch (id/status/assignee) ให้ UI merge · event realtime sync agent อื่น
+ */
+function registerManageRoutes(app: FastifyInstance, deps: AppDeps): void {
+  const { auth, manageConversation } = deps;
+
   const handleManage = async (
     req: FastifyRequest<{ Params: { conversationId: string } }>,
     reply: FastifyReply,
@@ -156,15 +176,4 @@ export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
         manageConversation.reopen({ workspaceId, conversationId }),
       ),
   );
-
-  app.get<{ Querystring: { token?: string } }>('/inbox/ws', { websocket: true }, (socket, req) => {
-    const ctx = authFromToken(req.query.token, auth);
-    if (!ctx) {
-      socket.close(1008, 'unauthorized');
-      return;
-    }
-    // register ใต้ workspaceId — consumer (pg-boss) จะ fan-out event ของ workspace นี้มาที่ key เดียวกัน
-    agentRegistry.add(ctx.workspaceId, socket);
-    socket.on('close', () => agentRegistry.remove(ctx.workspaceId, socket));
-  });
 }
