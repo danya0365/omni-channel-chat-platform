@@ -1,0 +1,14 @@
+# GitGuardian config — ยกเว้น path ที่เป็น dev-only / test fixture (ไม่ใช่ production secret)
+# เหตุผลที่ยกเว้น:
+#   - docker-compose.yml    → dev DB password ของ container local (ADR-0002 ระบุว่า dev only)
+#   - **/*.test.ts          → test fixtures (รหัส/secret ปลอมสำหรับทดสอบฟังก์ชัน hash/auth)
+#   - apps/api/src/seed-dev.ts → demo agent credential สำหรับ dev seed (ข้อมูลสมมติ)
+#   - drizzle.config.ts     → dev DATABASE_URL default (dev only)
+# หมายเหตุ: prod ต้องตั้ง secret จริงผ่าน env (DATABASE_URL / AUTH_SESSION_SECRET / channel token)
+version: 2
+secret:
+  ignored-paths:
+    - 'docker-compose.yml'
+    - '**/*.test.ts'
+    - 'apps/api/src/seed-dev.ts'
+    - '**/drizzle.config.ts'
