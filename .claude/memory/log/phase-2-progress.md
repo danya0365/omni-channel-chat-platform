@@ -1,12 +1,12 @@
 ---
 name: phase-2-progress
-description: 'สถานะ Phase 2 (unified model + web channel end-to-end) — เสร็จ item 1-4 (domain+db), ต่อ item 5 (channel-web+api+WS). อ่านตอนเปิด session เพื่อทำ Phase 2 ต่อ'
+description: 'สถานะ Phase 2 (unified model + web channel end-to-end) — เสร็จครบ item 1-7 + verify browser จริง. Phase 2 ปิดสมบูรณ์ · ต่อไป = push/PR หรือ Phase 3 (agent inbox realtime)'
 metadata:
   node_type: memory
   type: log
   status: active
   scope: global
-  updated: 2026-07-18
+  updated: 2026-07-19
   originSessionId: c95243e8-0ef0-4fc2-b3aa-cfd6f5dd01c6
 ---
 
@@ -15,23 +15,23 @@ metadata:
 > อ่านไฟล์นี้ + [[project-overview]] + [[adr-0002-stack-and-repo-layout]] แล้วทำต่อได้ทันที
 > (phase-1-handoff ถูก archive แล้ว — Phase 1 จบไปนานแล้ว)
 
-## สถานะ (2026-07-18)
+## สถานะ (2026-07-19)
 
 - branch `feature/phase-1-stack-skeleton` — **ยังไม่ merge main, ยังไม่ push** (รอพี่สั่ง)
-- **Phase 2 เสร็จ item 1-6 แล้ว** (domain + db + channel-web + api/WS + widget UI end-to-end) · เหลือ item 7 (demo/contract — ส่วนใหญ่ครอบด้วย e2e แล้ว)
-- commit ล่าสุด: `accee70` domain · `96d896a` db · `6616101` memory
-- ⚠️ **item 5 + 6 ยังไม่ commit** — working tree มีของใหม่เพียบ (domain/db/channel-web/api/widget) รอพี่สั่ง commit
+- **Phase 2 เสร็จครบ item 1-7 แล้ว + commit ครบ** (domain + db + channel-web + api/WS + widget UI end-to-end) — **item 7 verify browser จริงแล้ว** (พี่พิมพ์ในหน้า demo → เข้า DB · ยิง reply → bubble เด้งเข้า widget realtime `delivered:true`)
+- commit ล่าสุด: `6140853` widget (item 6) · `8234667` web channel backend (item 5) · `6616101` memory · `96d896a` db · `accee70` domain
+- ✅ working tree สะอาด (นอกจากไฟล์นี้) · gate เขียว 56 tests + boundaries 150 modules
 
 ## Progress Phase 2 (7 items)
 
-| #   | งาน                                                                                                  | สถานะ                      |
-| --- | ---------------------------------------------------------------------------------------------------- | -------------------------- |
-| 1-2 | `@omni/domain` schema + ports                                                                        | ✅ `accee70`               |
-| 3   | `ingestInboundMessage` service + unit test ทุก branch                                                | ✅ `accee70`               |
-| 4   | `@omni/db` Drizzle schema/migration/repos/connection + integration test                              | ✅ `96d896a`               |
-| 5   | `@omni/channel-web` + routes ใน api (POST sessions/messages + **WS** delivery + connection registry) | ✅ ยังไม่ commit           |
-| 6   | `apps/widget` แชท UI จริง (ส่ง inbound + WS รับ outbound + reconnect) + CORS + seed:dev              | ✅ ยังไม่ commit           |
-| 7   | demo end-to-end (พิมพ์→DB→outbound curl→เด้ง widget realtime) + contract test                        | ⬜ (e2e test มีแล้วใน api) |
+| #   | งาน                                                                                                  | สถานะ                  |
+| --- | ---------------------------------------------------------------------------------------------------- | ---------------------- |
+| 1-2 | `@omni/domain` schema + ports                                                                        | ✅ `accee70`           |
+| 3   | `ingestInboundMessage` service + unit test ทุก branch                                                | ✅ `accee70`           |
+| 4   | `@omni/db` Drizzle schema/migration/repos/connection + integration test                              | ✅ `96d896a`           |
+| 5   | `@omni/channel-web` + routes ใน api (POST sessions/messages + **WS** delivery + connection registry) | ✅ `8234667`           |
+| 6   | `apps/widget` แชท UI จริง (ส่ง inbound + WS รับ outbound + reconnect) + CORS + seed:dev              | ✅ `6140853`           |
+| 7   | demo end-to-end (พิมพ์→DB→outbound curl→เด้ง widget realtime) + contract test                        | ✅ verify browser จริง |
 
 ## วิธีรัน (เครื่องนี้ deps ติดตั้งแล้ว)
 
@@ -67,8 +67,18 @@ generate migration ใหม่: `pnpm --filter @omni/db db:generate`
 
 ⚠️ **verify ที่ทำจริงแล้ว**: รัน `createWidgetClient` ตัวจริง (โค้ดเดียวกับที่ browser รัน) ยิงเข้า **live api + Postgres** →
 start→online, sendText→persist (inbound contact), POST reply→delivered:true, widget รับ outbound ทาง WS จริง +
-ยืนยัน 2 แถวใน DB (inbound+outbound) · **ยังไม่ได้เปิด browser DOM จริง** (main.ts เป็น glue บางๆ เหนือ client ที่ verify แล้ว — พี่รัน vite ดูตาได้)
-⚠️ **ไม่ commit จนพี่สั่ง** · item 5 + 6 ค้าง commit ทั้งคู่ (working tree มีของทั้งหมด)
+ยืนยัน 2 แถวใน DB (inbound+outbound) · **item 7 เปิด browser DOM จริงแล้ว** (2026-07-19): พี่พิมพ์ในหน้า demo (vite :5174) →
+เข้า DB (`inbound/contact`) · ผมยิง reply helper → bubble ขาวเด้งเข้า widget realtime `delivered:true` (WS ของ browser ต่ออยู่จริง)
+✅ **commit แล้ว** (`8234667` backend · `6140853` widget) — working tree สะอาด
+
+## ⭐ ต่อไป (Phase 2 ปิดครบแล้ว — เลือก 1)
+
+1. **Phase 3**: agent inbox realtime — ต่อ **EventBus seam ที่ยัง no-op** (`apps/api/src/wiring.ts` →
+   outbox/pg-boss + consumer push เข้า inbox ผ่าน WS) · + WS auth (session→Auth.js/OIDC) · reply endpoint ใส่ auth + agentId จริง
+   → เริ่มด้วยเสนอ breakdown + default decisions ให้พี่ veto ก่อนลงมือ (งานใหญ่ ควร `/new-adr`)
+2. **push + เปิด PR** เข้า main (รอพี่สั่ง — ยังไม่เคย push branch นี้)
+
+**helper รอบทดสอบ browser** (ถ้าจะเปิด demo อีก): `scratchpad/reply.sh "ข้อความ"` — หา conversation ล่าสุดของ ws_demo แล้วยิง outbound reply (ดู DB: `select ... from messages join conversations where workspace_id='ws_demo'`)
 
 ## ทำอะไรไปแล้ว (รายละเอียด)
 
