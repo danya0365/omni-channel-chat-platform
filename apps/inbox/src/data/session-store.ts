@@ -1,7 +1,7 @@
 // Session store สำหรับ useSyncExternalStore — อ่าน/เขียน localStorage แบบ SSR-safe
 // (getServerSnapshot คืน null → ไม่ hydration mismatch · setSession แจ้ง subscriber ให้ re-render)
 
-import type { Session } from './types';
+import type { Session } from '../domain/types';
 
 const KEY = 'omni_inbox_session';
 

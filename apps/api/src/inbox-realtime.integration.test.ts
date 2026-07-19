@@ -1,7 +1,15 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
-import { sql } from 'drizzle-orm';
-import { agents, channels, createDb, createIdGenerator, runMigrations, workspaces } from '@omni/db';
+import { eq, sql } from 'drizzle-orm';
+import {
+  agents,
+  channels,
+  conversations,
+  createDb,
+  createIdGenerator,
+  runMigrations,
+  workspaces,
+} from '@omni/db';
 import type { DbHandle } from '@omni/db';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app';
@@ -172,5 +180,64 @@ describe('agent inbox realtime (integration — ต้อง pnpm db:up)', () =>
     });
 
     widgetWs.close();
+  });
+
+  it('agent assign/close → agent WS รับ conversation event realtime + DB อัปเดต (Phase 4 routing)', async () => {
+    const { channelId, agentId, workspaceId } = await seedWsChannelAgent();
+    const token = await login();
+
+    // สร้าง conversation ด้วย inbound ก่อน
+    const sessionRes = await fetch(`${baseUrl}/channels/web/${channelId}/sessions`, {
+      method: 'POST',
+    });
+    const { sessionId } = (await sessionRes.json()) as { sessionId: string };
+    const inbound = await fetch(`${baseUrl}/channels/web/${channelId}/messages`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sessionId, text: 'ทัก', contactName: 'ลูกค้า' }),
+    });
+    const { conversationId } = (await inbound.json()) as { conversationId: string };
+
+    // agent เชื่อม inbox WS แล้ว assign
+    const agentEvents: Array<Record<string, unknown>> = [];
+    const agentWs = await openWs(
+      `${baseUrl.replace('http', 'ws')}/inbox/ws?token=${token}`,
+      agentEvents,
+    );
+
+    const assignRes = await fetch(`${baseUrl}/inbox/conversations/${conversationId}/assign`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(assignRes.status).toBe(200);
+
+    // agent WS ต้องได้ conversation event ที่ assignee = agent (จาก outbox drain)
+    await waitFor(() =>
+      agentEvents.some(
+        (e) =>
+          e.type === 'conversation' &&
+          (e.conversation as { assignee?: { kind?: string } } | undefined)?.assignee?.kind ===
+            'agent',
+      ),
+    );
+
+    // ปิดสาย → DB status closed
+    const closeRes = await fetch(`${baseUrl}/inbox/conversations/${conversationId}/close`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(closeRes.status).toBe(200);
+    expect((await closeRes.json()) as unknown).toMatchObject({
+      conversation: { status: 'closed', assignee: { kind: 'agent', agentId } },
+    });
+
+    const rows = await seedHandle.db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.workspaceId, workspaceId));
+    expect(rows[0]?.status).toBe('closed');
+    expect(rows[0]?.assignee).toEqual({ kind: 'agent', agentId });
+
+    agentWs.close();
   });
 });

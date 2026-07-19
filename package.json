@@ -9,14 +9,15 @@
     "pnpm": ">=9"
   },
   "scripts": {
-    "lint": "eslint .",
+    "lint": "eslint . && pnpm --filter @omni/inbox lint",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "check:boundaries": "depcruise apps packages --config .dependency-cruiser.cjs",
-    "gate": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run check:boundaries",
+    "check:app-routing": "node scripts/check-app-routing.mjs",
+    "gate": "pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run check:boundaries && pnpm run check:app-routing",
     "build": "pnpm -r --if-present build",
     "dev": "pnpm -r --parallel --if-present dev",
     "db:up": "docker compose up -d",

@@ -23,6 +23,9 @@ paths:
 - **env** parse ด้วย Zod ที่ boundary ตอน boot (`loadEnv()` ใน `apps/api/src/env.ts`) — ห้ามอ่าน `process.env` ตรงในโค้ดลึก
 - **Error** ที่ boundary ภายนอก (webhook/outbound send) คืน `Result<T, E>` จาก `@omni/domain` — throw เฉพาะ exceptional จริง; ต้อง handle failure + retry/log
 - **Multi-tenant** — repository ทุกตัวรับ `workspaceId` เป็น param บังคับ · ทุก query scope ด้วย workspace เสมอ (ลืม = data leak ข้าม tenant)
+- **กัน God function** (ปรัชญาเดียวกับ frontend: 1 หน่วย = 1 หน้าที่) — route handler บาง (parse → validate → delegate)
+  logic ไป **domain service** · pure ไป lib · route group ใหญ่ → แตกเป็น `registerXxxRoutes` แยก
+  บังคับด้วย eslint ใน root config (`max-lines` 300/ไฟล์ · `max-lines-per-function` 120 · `complexity` 12 · `max-depth` 4)
 
 ## Drizzle
 

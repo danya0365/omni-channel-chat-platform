@@ -51,5 +51,23 @@ export function createConversationRepository(db: Executor): ConversationReposito
           and(eq(conversations.workspaceId, workspaceId), eq(conversations.id, conversationId)),
         );
     },
+
+    setAssignee: async (workspaceId, conversationId, assignee) => {
+      await db
+        .update(conversations)
+        .set({ assignee })
+        .where(
+          and(eq(conversations.workspaceId, workspaceId), eq(conversations.id, conversationId)),
+        );
+    },
+
+    setStatus: async (workspaceId, conversationId, status) => {
+      await db
+        .update(conversations)
+        .set({ status })
+        .where(
+          and(eq(conversations.workspaceId, workspaceId), eq(conversations.id, conversationId)),
+        );
+    },
   };
 }

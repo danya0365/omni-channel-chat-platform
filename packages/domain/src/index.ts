@@ -7,3 +7,4 @@ export * from './schema';
 export * from './ports';
 export * from './services/ingest-inbound-message';
 export * from './services/send-outbound-message';
+export * from './services/manage-conversation';

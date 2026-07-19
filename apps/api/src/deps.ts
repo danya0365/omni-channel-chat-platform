@@ -2,6 +2,7 @@ import type {
   ChannelRepository,
   ConversationRepository,
   InboxReadRepository,
+  ManageConversation,
   createIngestInboundMessage,
   createSendOutboundMessage,
 } from '@omni/domain';
@@ -26,6 +27,8 @@ export interface AppDeps {
   inboxRead: InboxReadRepository;
   /** resolve conversation (ใช้ตอน agent reply เพื่อรู้ channel ของสาย) */
   conversations: ConversationRepository;
+  /** assign/unassign/close/reopen conversation (Phase 4 routing) */
+  manageConversation: ManageConversation;
   /** auth ของ agent (login + verify token) — Phase 3 */
   auth: AuthService;
   /** สร้าง sessionId ใหม่ (สุ่ม) — inject เพื่อ test deterministic + แยก crypto ออกจาก route */
