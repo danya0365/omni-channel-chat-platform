@@ -1,7 +1,13 @@
 // API client ของ inbox — คุย apps/api ผ่าน HTTP + WS เท่านั้น (ไม่แตะ DB ตรง)
 // token เก็บใน localStorage (public identifier ฝั่ง client — ไม่มี secret ในบันเดิล)
 
-import type { AuthAgent, ConversationPatch, Session, WireConversation, WireMessage } from './types';
+import type {
+  AuthAgent,
+  ConversationPatch,
+  Session,
+  WireConversation,
+  WireMessage,
+} from '../domain/types';
 
 export const API_ORIGIN = process.env.NEXT_PUBLIC_API_ORIGIN ?? 'http://localhost:3001';
 

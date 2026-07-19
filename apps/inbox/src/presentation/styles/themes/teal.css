@@ -1,0 +1,71 @@
+/* ============================================
+   Theme: teal — ทางเลือก (teal + amber accent)
+   ============================================ */
+
+[data-theme='teal'] {
+  /* Brand — teal */
+  --brand-50: #f0fdfa;
+  --brand-100: #ccfbf1;
+  --brand-200: #99f6e4;
+  --brand-300: #5eead4;
+  --brand-400: #2dd4bf;
+  --brand-500: #14b8a6;
+  --brand-600: #0d9488;
+  --brand-700: #0f766e;
+  --brand-800: #115e59;
+  --brand-900: #134e4a;
+
+  /* Accent — amber */
+  --accent-100: #fef3c7;
+  --accent-400: #fbbf24;
+  --accent-500: #f59e0b;
+  --accent-600: #d97706;
+
+  /* Surface / semantic */
+  --background: #fafafa;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --muted: #71717a;
+  --muted-surface: #f4f4f5;
+  --border: #e4e4e7;
+  --ring: #2dd4bf;
+  --on-brand: #ffffff;
+
+  /* Status */
+  --success: #16a34a;
+  --success-surface: #dcfce7;
+  --warning: #b45309;
+  --warning-surface: #fef3c7;
+  --error: #dc2626;
+  --error-surface: #fee2e2;
+
+  /* Fonts */
+  --font-body: var(--font-geist-sans), system-ui, sans-serif;
+  --font-heading-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+[data-theme='teal'].dark,
+.dark[data-theme='teal'] {
+  --brand-50: #042f2e;
+  --brand-100: #0a3d3a;
+  --brand-200: #115e59;
+  --brand-300: #0f766e;
+  --brand-500: #14b8a6;
+  --brand-600: #0d9488;
+  --brand-700: #99f6e4;
+
+  --background: #0a0a0a;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --muted: #a1a1aa;
+  --muted-surface: #27272a;
+  --border: #3f3f46;
+  --ring: #2dd4bf;
+  --on-brand: #ffffff;
+
+  --success-surface: #052e16;
+  --warning-surface: #451a03;
+  --error-surface: #450a0a;
+}

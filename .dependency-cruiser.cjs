@@ -28,6 +28,62 @@ module.exports = {
       from: { path: '^packages/' },
       to: { path: '^apps/' },
     },
+    // ── apps/inbox hexagonal (frontend) — ดู .claude/rules/frontend-next.md ──
+    // ทิศ: presentation → data → domain · presentation ภายใน: components → hooks → lib · domain = center บริสุทธิ์
+    {
+      name: 'inbox-src-only-allowed-folders',
+      comment: 'apps/inbox/src/ อนุญาตเฉพาะ: domain, data, presentation — ห้าม folder อื่น',
+      severity: 'error',
+      from: {},
+      to: {
+        path: '^apps/inbox/src/[^/]+/.+',
+        pathNot: '^apps/inbox/src/(domain|data|presentation)/',
+      },
+    },
+    {
+      name: 'inbox-domain-pure',
+      comment: 'apps/inbox/src/domain/ = contract ล้วน — ห้าม import data/presentation/react/next',
+      severity: 'error',
+      from: { path: '^apps/inbox/src/domain/' },
+      to: { path: '^apps/inbox/src/(data|presentation)/|node_modules/(react|react-dom|next)' },
+    },
+    {
+      name: 'inbox-data-no-presentation',
+      comment:
+        'apps/inbox/src/data/ (adapter) ห้าม import presentation (ทิศไหลเข้า domain เท่านั้น)',
+      severity: 'error',
+      from: { path: '^apps/inbox/src/data/' },
+      to: { path: '^apps/inbox/src/presentation/' },
+    },
+    {
+      name: 'inbox-components-no-data',
+      comment:
+        'presentation/components ห้าม import data ตรง — ต้องผ่าน hook (กัน side-effect รั่วเข้า UI)',
+      severity: 'error',
+      from: { path: '^apps/inbox/src/presentation/components/' },
+      to: { path: '^apps/inbox/src/data/' },
+    },
+    {
+      name: 'inbox-lib-no-data',
+      comment: 'presentation/lib (pure) ห้าม import data',
+      severity: 'error',
+      from: { path: '^apps/inbox/src/presentation/lib/' },
+      to: { path: '^apps/inbox/src/data/' },
+    },
+    {
+      name: 'inbox-hooks-no-components',
+      comment: 'presentation/hooks ห้าม import components (ทิศ: components → hooks)',
+      severity: 'error',
+      from: { path: '^apps/inbox/src/presentation/hooks/' },
+      to: { path: '^apps/inbox/src/presentation/components/' },
+    },
+    {
+      name: 'inbox-lib-no-components-hooks',
+      comment: 'presentation/lib (pure) ห้าม import components/hooks',
+      severity: 'error',
+      from: { path: '^apps/inbox/src/presentation/lib/' },
+      to: { path: '^apps/inbox/src/presentation/(components|hooks)/' },
+    },
     {
       name: 'no-circular',
       comment: 'ห้าม circular dependency',
@@ -37,7 +93,7 @@ module.exports = {
     },
   ],
   options: {
-    doNotFollow: { path: 'node_modules' },
+    doNotFollow: { path: '(node_modules|\\.next)' },
     tsConfig: { fileName: 'tsconfig.base.json' },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {

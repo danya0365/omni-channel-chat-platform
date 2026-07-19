@@ -1,0 +1,51 @@
+/* ============================================
+   Tailwind v4 theme mapping — var() only (ห้าม hardcode สี)
+   ค่าจริง (hex) อยู่ใน themes/*.css ต่อ [data-theme]
+   ============================================ */
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  /* Fonts */
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-heading-family);
+
+  /* On-brand — สีตัวอักษร/ไอคอนบนพื้น brand-500/600 (ปุ่ม primary) แยกจาก ramp กันข้อความปุ่มพังตอน dark */
+  --color-on-brand: var(--on-brand);
+
+  /* Surface / semantic */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-surface: var(--muted-surface);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+
+  /* Brand ramp */
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  /* Accent */
+  --color-accent-100: var(--accent-100);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+
+  /* Status */
+  --color-success: var(--success);
+  --color-success-surface: var(--success-surface);
+  --color-warning: var(--warning);
+  --color-warning-surface: var(--warning-surface);
+  --color-error: var(--error);
+  --color-error-surface: var(--error-surface);
+}

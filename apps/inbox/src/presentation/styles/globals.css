@@ -1,0 +1,18 @@
+/* CSS entry — ลำดับ @import ห้ามสลับ (tailwind ต้องมาก่อน) */
+@import 'tailwindcss';
+@import './theme.css'; /* ชั้น map (var-only) */
+@import './themes/violet.css'; /* palette default (ผูก :root) */
+@import './themes/teal.css';
+
+@layer base {
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-body);
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-heading-family);
+  }
+}

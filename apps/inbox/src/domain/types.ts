@@ -1,5 +1,6 @@
 // Wire types ของ inbox — DTO ของ apps/api (routes/inbox-wire.ts) แบบ JSON-safe (date = ISO string)
 // union ของ unified schema (content/direction/sender) แชร์จาก @omni/domain ด้วย import type (ไม่ redefine)
+// helper แปลง content → text อยู่ที่ lib/format.ts (แยก type ออกจาก logic)
 
 import type { Assignee, MessageContent, MessageDirection, MessageSender } from '@omni/domain';
 
@@ -55,9 +56,4 @@ export interface AuthAgent {
 export interface Session {
   token: string;
   agent: AuthAgent;
-}
-
-/** ดึง text จาก content (union) — ชนิดที่ยังไม่รองรับแสดง placeholder */
-export function contentText(content: MessageContent): string {
-  return content.type === 'text' ? content.text : '[ข้อความชนิดนี้ยังไม่รองรับ]';
 }
