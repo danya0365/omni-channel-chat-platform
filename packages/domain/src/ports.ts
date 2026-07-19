@@ -1,0 +1,181 @@
+import { z } from 'zod';
+import { idSchema } from './ids';
+import type { WorkspaceId, ChannelId, ContactId, ConversationId, MessageId, AgentId } from './ids';
+import type { Result } from './result';
+import type { Agent } from './schema/agent';
+import type { Channel } from './schema/channel';
+import type { Contact, ContactIdentity } from './schema/contact';
+import type { Conversation } from './schema/conversation';
+import type { Message, MessageContent, MessageDirection } from './schema/message';
+
+/**
+ * ChannelRepository — resolve channel จาก id
+ *
+ * ⚠️ ข้อยกเว้น multi-tenant: `findPublicById` **ไม่รับ workspaceId** เพราะเป็น "จุดเข้า" ของ
+ * inbound จากช่องทาง — client (widget) รู้แค่ `channelId` (public identifier ใน URL) ยังไม่รู้ว่า
+ * อยู่ workspace ไหน. method นี้แหละที่ **สถาปนา workspace context** จาก channelId (channel ผูก 1 workspace).
+ * หลังจากได้ channel แล้ว โค้ดต่อจากนี้ต้อง scope ด้วย `channel.workspaceId` เสมอ.
+ */
+export interface ChannelRepository {
+  findPublicById(channelId: ChannelId): Promise<Channel | null>;
+}
+
+/**
+ * Repository ports — adapter (@omni/db) จะ implement
+ *
+ * กฎ multi-tenant: ทุก method รับ `workspaceId` เป็น param บังคับ + ทุก query scope ด้วย workspace เสมอ
+ * (ลืม = data leak ข้าม tenant) · insert รับ entity ที่ service ประกอบเสร็จ (id/เวลา generate ใน service)
+ * adapter แค่ persist ไม่คิด business
+ * ⚠️ atomicity ของ multi-insert (contact+identity) เป็นหน้าที่ adapter ครอบด้วย transaction
+ */
+export interface ContactRepository {
+  /** หา contact + identity จาก key ช่องทาง (workspaceId, channelId, externalId) — null ถ้ายังไม่เคยเจอ */
+  findByChannelIdentity(
+    workspaceId: WorkspaceId,
+    channelId: ChannelId,
+    externalId: string,
+  ): Promise<{ contact: Contact; identity: ContactIdentity } | null>;
+
+  /** สร้าง contact ใหม่พร้อม identity แรก (atomic — adapter ครอบ transaction) */
+  insertContactWithIdentity(
+    workspaceId: WorkspaceId,
+    contact: Contact,
+    identity: ContactIdentity,
+  ): Promise<void>;
+}
+
+export interface ConversationRepository {
+  /** conversation ที่ยัง open ล่าสุดของ contact บนช่องทางนี้ — null ถ้าไม่มี (ต้องเปิดใหม่) */
+  findLatestOpen(
+    workspaceId: WorkspaceId,
+    contactId: ContactId,
+    channelId: ChannelId,
+  ): Promise<Conversation | null>;
+
+  /** หา conversation จาก id (scope workspace) — null ถ้าไม่มี · ใช้ตอน outbound เช็คว่าสายมีจริง */
+  findById(workspaceId: WorkspaceId, conversationId: ConversationId): Promise<Conversation | null>;
+
+  insert(workspaceId: WorkspaceId, conversation: Conversation): Promise<void>;
+
+  /** อัปเดต lastMessageAt (เด้ง conversation ขึ้นบนสุดใน inbox) */
+  touch(
+    workspaceId: WorkspaceId,
+    conversationId: ConversationId,
+    lastMessageAt: Date,
+  ): Promise<void>;
+}
+
+export interface MessageRepository {
+  insert(workspaceId: WorkspaceId, message: Message): Promise<void>;
+}
+
+/**
+ * AgentRepository — resolve agent (ทีมงาน) · Phase 3 auth + inbox
+ *
+ * ⚠️ `findCredentialByEmail` เป็นข้อยกเว้น multi-tenant (คล้าย `ChannelRepository.findPublicById`):
+ * จุดเข้า login ยังไม่รู้ว่า agent อยู่ workspace ไหน — resolve จาก email แล้ว **สถาปนา workspace context**
+ * จาก `agent.workspaceId` (MVP: email unique ทั้งระบบ · ถ้าวันหลัง email ซ้ำข้าม workspace ต้องมี workspace selector)
+ * คืน `passwordHash` ให้ auth layer (apps/api) verify — domain ไม่ hash/verify เอง (เป็น infra)
+ */
+export interface AgentRepository {
+  findById(workspaceId: WorkspaceId, agentId: AgentId): Promise<Agent | null>;
+  findCredentialByEmail(email: string): Promise<{ agent: Agent; passwordHash: string } | null>;
+}
+
+/** ---- Inbox read-model (Phase 3: agent inbox — query ล้วน ไม่มี business logic) ---- */
+
+/** สรุป conversation หนึ่งแถวใน inbox list (conversation + ชื่อ contact + ข้อความล่าสุด) */
+export interface ConversationListItem {
+  conversation: Conversation;
+  /** ชื่อ contact (null ถ้าช่องทางไม่ให้ชื่อ) */
+  contactName: string | null;
+  /** ข้อความล่าสุดของสาย (null ถ้าสายยังไม่มีข้อความ — ปกติมีเสมอ) */
+  lastMessage: {
+    direction: MessageDirection;
+    content: MessageContent;
+    createdAt: Date;
+  } | null;
+}
+
+/** ตัวเลือก paginate แบบ cursor ด้วยเวลา (เลื่อนดูของเก่าลงไป) */
+export interface InboxPageOptions {
+  limit: number;
+  /** เอาเฉพาะที่เก่ากว่าเวลานี้ (cursor) — undefined = หน้าแรก (ใหม่สุด) */
+  before?: Date;
+}
+
+/**
+ * InboxReadRepository — read-model สำหรับ agent inbox
+ * ทุก method scope ด้วย `workspaceId` (agent เห็นเฉพาะ workspace ตัวเอง — กัน cross-tenant)
+ */
+export interface InboxReadRepository {
+  /** conversation ใน workspace เรียงใหม่→เก่า (by lastMessageAt) */
+  listConversations(
+    workspaceId: WorkspaceId,
+    options: InboxPageOptions,
+  ): Promise<ConversationListItem[]>;
+
+  /** ข้อความในสายหนึ่ง เรียงใหม่→เก่า (by createdAt) · scope workspace กันดูข้ามสาย/ข้าม tenant */
+  listMessages(
+    workspaceId: WorkspaceId,
+    conversationId: ConversationId,
+    options: InboxPageOptions,
+  ): Promise<Message[]>;
+
+  /** หา message รายตัวจาก id (scope workspace) — consumer ใช้ประกอบ event ตอน fan-out realtime */
+  getMessageById(workspaceId: WorkspaceId, messageId: MessageId): Promise<Message | null>;
+}
+
+/** ผลลัพธ์การส่ง outbound จาก provider */
+export interface OutboundReceipt {
+  /** id ที่ provider คืนมา (ไว้ trace/dedup) — null ถ้าไม่มี (เช่น web ไม่มี provider id) */
+  externalId: string | null;
+  /**
+   * ปลายทางรับได้จริงไหมในตอนนี้ — web: มี socket live ต่ออยู่รับ (true) หรือ widget offline (false)
+   * false ไม่ใช่ error: message persist ไว้แล้ว widget จะดึง history ตอน reconnect (Phase 3)
+   */
+  delivered: boolean;
+}
+export interface OutboundError {
+  code: 'send_failed';
+  message: string;
+}
+
+/**
+ * OutboundGateway — ส่ง message ออกไปยังช่องทางภายนอก (Phase 2 item 5: channel-web + WS)
+ * คืน Result เพราะเป็น network boundary — caller ต้อง handle failure/retry
+ */
+export interface OutboundGateway {
+  send(message: Message): Promise<Result<OutboundReceipt, OutboundError>>;
+}
+
+/**
+ * DomainEvent — seam ของ EventBus/outbox (→ pg-boss ภายหลัง)
+ * นิยามด้วย zod เพราะ event จะถูก serialize ข้าม process — ต้อง validate ได้
+ */
+export const domainEventSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('inbound_message.received'),
+    workspaceId: idSchema('ws'),
+    channelId: idSchema('chn'),
+    conversationId: idSchema('conv'),
+    contactId: idSchema('ctc'),
+    messageId: idSchema('msg'),
+    occurredAt: z.date(),
+  }),
+  // agent/bot ตอบกลับ → agent inbox คนอื่นใน workspace เห็น sync (consumer re-fetch message ตาม id)
+  z.object({
+    type: z.literal('outbound_message.sent'),
+    workspaceId: idSchema('ws'),
+    channelId: idSchema('chn'),
+    conversationId: idSchema('conv'),
+    messageId: idSchema('msg'),
+    occurredAt: z.date(),
+  }),
+]);
+export type DomainEvent = z.infer<typeof domainEventSchema>;
+
+/** EventBus — publish domain event · impl แรกเป็น in-process, ต่อ pg-boss ภายหลังโดยไม่แตะ core */
+export interface EventBus {
+  publish(event: DomainEvent): Promise<void>;
+}

@@ -1,0 +1,107 @@
+import { z } from 'zod';
+import { idSchema } from '@omni/domain';
+import type { FastifyInstance } from 'fastify';
+import type { AppDeps } from '../deps';
+import { authFromHeader, authFromToken } from '../auth/require-agent';
+import { toWireConversation, toWireMessage } from './inbox-wire';
+
+/** query paginate: limit (1-100, default 30) + before (cursor เป็น ISO date) */
+const listQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+  before: z.coerce.date().optional(),
+});
+const replyBodySchema = z.object({ text: z.string().min(1) });
+
+/**
+ * routes ของ agent inbox (Phase 3) — ทุก route ต้อง auth (token → workspaceId/agentId)
+ *   GET  /inbox/conversations                          → list ใน workspace ของ agent
+ *   GET  /inbox/conversations/:conversationId/messages → history ของสาย (scope workspace)
+ *   POST /inbox/conversations/:conversationId/reply    → agent ตอบ (sender = agent จริง)
+ *   GET  /inbox/ws?token=...                            → WS realtime (register ตาม workspaceId)
+ * ⚠️ workspaceId มาจาก token เท่านั้น (ไม่รับจาก client) — กัน cross-tenant
+ */
+export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
+  const { auth, inboxRead, conversations, sendOutbound, agentRegistry } = deps;
+
+  app.get<{ Querystring: { limit?: string; before?: string } }>(
+    '/inbox/conversations',
+    async (req, reply) => {
+      const ctx = authFromHeader(req, auth);
+      if (!ctx) return reply.code(401).send({ error: 'unauthorized' });
+      const q = listQuerySchema.safeParse(req.query);
+      if (!q.success) return reply.code(400).send({ error: 'invalid_query' });
+
+      const items = await inboxRead.listConversations(ctx.workspaceId, {
+        limit: q.data.limit,
+        before: q.data.before,
+      });
+      return reply.send({ conversations: items.map(toWireConversation) });
+    },
+  );
+
+  app.get<{ Params: { conversationId: string }; Querystring: { limit?: string; before?: string } }>(
+    '/inbox/conversations/:conversationId/messages',
+    async (req, reply) => {
+      const ctx = authFromHeader(req, auth);
+      if (!ctx) return reply.code(401).send({ error: 'unauthorized' });
+      const convId = idSchema('conv').safeParse(req.params.conversationId);
+      if (!convId.success) return reply.code(400).send({ error: 'invalid_conversation_id' });
+      const q = listQuerySchema.safeParse(req.query);
+      if (!q.success) return reply.code(400).send({ error: 'invalid_query' });
+
+      const msgs = await inboxRead.listMessages(ctx.workspaceId, convId.data, {
+        limit: q.data.limit,
+        before: q.data.before,
+      });
+      return reply.send({ messages: msgs.map(toWireMessage) });
+    },
+  );
+
+  app.post<{ Params: { conversationId: string } }>(
+    '/inbox/conversations/:conversationId/reply',
+    async (req, reply) => {
+      const ctx = authFromHeader(req, auth);
+      if (!ctx) return reply.code(401).send({ error: 'unauthorized' });
+      const convId = idSchema('conv').safeParse(req.params.conversationId);
+      if (!convId.success) return reply.code(400).send({ error: 'invalid_conversation_id' });
+      const body = replyBodySchema.safeParse(req.body);
+      if (!body.success) return reply.code(400).send({ error: 'invalid_body' });
+
+      // resolve conversation (scope workspace) → รู้ channel ของสาย + กันตอบข้าม tenant
+      const conversation = await conversations.findById(ctx.workspaceId, convId.data);
+      if (!conversation) return reply.code(404).send({ error: 'conversation_not_found' });
+
+      const result = await sendOutbound({
+        workspaceId: ctx.workspaceId,
+        channelId: conversation.channelId,
+        conversationId: convId.data,
+        content: { type: 'text', text: body.data.text },
+        sender: { kind: 'agent', agentId: ctx.agentId },
+      });
+      if (!result.ok) {
+        const status =
+          result.error.code === 'conversation_not_found'
+            ? 404
+            : result.error.code === 'send_failed'
+              ? 502
+              : 400;
+        return reply.code(status).send({ error: result.error.code });
+      }
+      return reply.send({
+        message: toWireMessage(result.value.message),
+        delivered: result.value.delivered,
+      });
+    },
+  );
+
+  app.get<{ Querystring: { token?: string } }>('/inbox/ws', { websocket: true }, (socket, req) => {
+    const ctx = authFromToken(req.query.token, auth);
+    if (!ctx) {
+      socket.close(1008, 'unauthorized');
+      return;
+    }
+    // register ใต้ workspaceId — consumer (pg-boss) จะ fan-out event ของ workspace นี้มาที่ key เดียวกัน
+    agentRegistry.add(ctx.workspaceId, socket);
+    socket.on('close', () => agentRegistry.remove(ctx.workspaceId, socket));
+  });
+}

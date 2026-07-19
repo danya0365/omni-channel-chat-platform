@@ -4,24 +4,36 @@
 > ดู [MEMORY-GUIDE.md](MEMORY-GUIDE.md) สำหรับวิธีจัดการ (เพิ่ม/archive/promote)
 
 ## Core
-- [Project Overview](core/project-overview.md) — โปรเจคนี้คืออะไร, เป้าหมาย, stack (ยัง TBD)
+
+- [Project Overview](core/project-overview.md) — โปรเจคนี้คืออะไร, เป้าหมาย, stack (เคาะแล้ว), roadmap 5 phase
 - [Iris Persona](core/iris-persona.md) — ตัวตน Iris (ตอบในนาม Iris ทุก session)
 - [Conventions](core/conventions.md) — มาตรฐานโค้ด/naming/git (baseline)
 
 ## Decisions (ADR)
+
 - [0001 AI Agent Toolkit](decisions/0001-agent-toolkit.md) — ชุดเครื่องมือ Claude ในโปรเจค (persona/memory/hooks/rules/commands)
+- [0002 Stack & Repo Layout](decisions/0002-stack-and-repo-layout.md) — เคาะ stack (Node/TS, Fastify, Postgres+Drizzle, Next.js, WS) + โครง monorepo + multi-tenant + gate
+- [0003 Phase 3 Inbox Realtime + Auth](decisions/0003-phase-3-inbox-realtime-auth.md) — realtime ฝั่ง agent = transactional outbox + pg-boss (เปิด seam) · auth ขั้นต่ำ = signed-session (JWT ฝัง workspaceId)
 
 ## Active Channels
+
 <!-- ช่องทางแชทที่รองรับ — เพิ่มด้วย /new-channel (ยังไม่มี) -->
 
 ## Modules
-<!-- service/module ภายใน เช่น routing, inbox, bot-engine — ยังไม่มี -->
+
+- **agent inbox** (Phase 3) — Next 16 UI (`apps/inbox`) + api `/inbox/*` routes + agent WS realtime (key=workspaceId) · ดู [[phase-3-progress]]
+- **realtime pipeline** (Phase 3) — transactional outbox → immediate drain → fan-out agent WS + pg-boss relay · ดู [[adr-0003-phase-3-inbox-realtime-auth]]
+- **auth** (Phase 3) — signed-session (scrypt+HMAC, zero-dep) ฝัง workspaceId ใน token
 
 ## Working Log
-<!-- log งานที่กำลังทำ — ยังไม่มี -->
+
+- [Phase 3 Progress](log/phase-3-progress.md) — **active** — Phase 3 เสร็จครบ (agent inbox realtime + auth) + วิธีรัน loop + decision + ต่อ Phase 4 (อ่านตอนเปิด session)
+- [Phase 2 Progress](log/phase-2-progress.md) — Phase 2 จบแล้ว (web channel e2e) — archive ได้
 
 ## Reference
+
 <!-- pattern/สูตรที่ใช้ซ้ำ — ยังไม่มี -->
 
 ## Archived
+
 <!-- ของที่ retire ดู _archive/INDEX.md -->

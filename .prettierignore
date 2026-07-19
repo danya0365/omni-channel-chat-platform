@@ -1,0 +1,10 @@
+node_modules
+dist
+build
+coverage
+.next
+pnpm-lock.yaml
+
+# tool-generated (เจ้าของ format คือ tool ไม่ใช่ prettier — กัน churn ทุกครั้งที่ regen)
+**/next-env.d.ts
+packages/db/migrations

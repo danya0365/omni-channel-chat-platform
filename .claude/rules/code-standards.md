@@ -1,9 +1,9 @@
 ---
 paths:
-  - "src/**"
-  - "apps/**"
-  - "packages/**"
-  - "services/**"
+  - 'src/**'
+  - 'apps/**'
+  - 'packages/**'
+  - 'services/**'
 ---
 
 # Code Standards — Omni-Channel Chat Platform (stack-agnostic baseline)

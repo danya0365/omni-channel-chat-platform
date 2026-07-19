@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Omni Widget Demo</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        padding: 32px 16px;
+        background: #eef0f5;
+        box-sizing: border-box;
+      }
+      h1 {
+        font-size: 18px;
+        color: #333;
+        margin: 0;
+      }
+      p.hint {
+        font-size: 13px;
+        color: #666;
+        max-width: 420px;
+        text-align: center;
+        line-height: 1.5;
+        margin: 0;
+      }
+      code {
+        background: #dfe3ea;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      #omni-widget {
+        height: 520px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Omni Widget Demo</h1>
+    <p class="hint">
+      ต้องมี api รันที่ <code>http://localhost:3001</code> และ seed channel ก่อน:<br />
+      <code>pnpm db:up</code> → <code>pnpm --filter @omni/api seed:dev</code> →
+      <code>pnpm --filter @omni/api dev</code><br />
+      ทดสอบ outbound: <code>POST /channels/web/chn_web_demo/reply</code> ด้วย conversationId ที่ได้
+    </p>
+    <div id="omni-widget"></div>
+    <script type="module">
+      import { mountWidget } from '/src/main.ts';
+      mountWidget(document.getElementById('omni-widget'), {
+        apiOrigin: 'http://localhost:3001',
+        channelId: 'chn_web_demo',
+        title: 'แชทกับทีมงาน',
+      });
+    </script>
+  </body>
+</html>

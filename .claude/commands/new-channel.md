@@ -1,6 +1,6 @@
 ---
 description: สร้าง memory spec ของช่องทางแชท (channel) ใหม่ในระบบ omni-channel
-argument-hint: "[ชื่อ channel เช่น line / messenger / whatsapp / web-widget]"
+argument-hint: '[ชื่อ channel เช่น line / messenger / whatsapp / web-widget]'
 ---
 
 สร้าง memory spec สำหรับช่องทางแชทใหม่ตาม convention ใน `.claude/memory/MEMORY-GUIDE.md`
