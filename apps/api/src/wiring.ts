@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { createIngestInboundMessage, createSendOutboundMessage } from '@omni/domain';
+import {
+  createIngestInboundMessage,
+  createManageConversation,
+  createSendOutboundMessage,
+} from '@omni/domain';
+import type { ManageConversation } from '@omni/domain';
 import {
   createAgentRepository,
   createChannelRepository,
@@ -67,6 +72,8 @@ export function createContainer(config: ContainerConfig): Container {
   const drain = createOutboxConsumer({
     withOutboxTx: (run) => handle.db.transaction((tx) => run(createOutboxStore(tx))),
     getMessage: (workspaceId, messageId) => inboxRead.getMessageById(workspaceId, messageId),
+    getConversation: (workspaceId, conversationId) =>
+      inboxRead.getConversationListItem(workspaceId, conversationId),
     agentRegistry,
     now: systemClock,
   });
@@ -112,6 +119,40 @@ export function createContainer(config: ContainerConfig): Container {
     return result;
   };
 
+  // manage conversation (assign/unassign/close/reopen) — รันใน tx + outbox eventbus แล้ว trigger drain
+  const txManage = <T>(op: (m: ManageConversation) => Promise<T>): Promise<T> =>
+    handle.db.transaction((tx) =>
+      op(
+        createManageConversation({
+          conversations: createConversationRepository(tx),
+          events: createOutboxEventBus(tx),
+          now: systemClock,
+        }),
+      ),
+    );
+  const manageConversation: ManageConversation = {
+    assign: async (cmd) => {
+      const r = await txManage((m) => m.assign(cmd));
+      triggerDrain();
+      return r;
+    },
+    unassign: async (cmd) => {
+      const r = await txManage((m) => m.unassign(cmd));
+      triggerDrain();
+      return r;
+    },
+    close: async (cmd) => {
+      const r = await txManage((m) => m.close(cmd));
+      triggerDrain();
+      return r;
+    },
+    reopen: async (cmd) => {
+      const r = await txManage((m) => m.reopen(cmd));
+      triggerDrain();
+      return r;
+    },
+  };
+
   const auth = createAuthService({
     agents,
     secret: config.authSecret,
@@ -128,6 +169,7 @@ export function createContainer(config: ContainerConfig): Container {
     agentRegistry,
     inboxRead,
     conversations,
+    manageConversation,
     auth,
     newSessionId: () => `web_${randomUUID()}`,
   };

@@ -9,6 +9,7 @@ import type {
   ConversationRepository,
   IngestInboundResult,
   InboxReadRepository,
+  ManageConversation,
   Message,
 } from '@omni/domain';
 import { webSessionKey } from '@omni/channel-web';
@@ -113,6 +114,10 @@ const inboxRead: InboxReadRepository = {
     workspaceId === 'ws_1' && conversationId === 'conv_1' ? [cannedMessage] : [],
   getMessageById: async (workspaceId, messageId) =>
     workspaceId === 'ws_1' && messageId === 'msg_1' ? cannedMessage : null,
+  getConversationListItem: async (workspaceId, conversationId) =>
+    workspaceId === 'ws_1' && conversationId === 'conv_1'
+      ? { conversation: cannedConversation, contactName: 'ลูกค้า', lastMessage: null }
+      : null,
 };
 
 /** conversations ปลอม — ws_1 มีทุกสายยกเว้น conv_missing (ไว้เทส 404) */
@@ -124,6 +129,28 @@ const conversationsRepo: ConversationRepository = {
       : null,
   insert: async () => {},
   touch: async () => {},
+  setAssignee: async () => {},
+  setStatus: async () => {},
+};
+
+/** manageConversation ปลอม — ws_1 + ไม่ใช่ conv_missing = สำเร็จ (สะท้อน id/assignee/status) */
+const manageConversation: ManageConversation = {
+  assign: async ({ workspaceId, conversationId, agentId }) =>
+    workspaceId === 'ws_1' && conversationId !== 'conv_missing'
+      ? ok({ ...cannedConversation, id: conversationId, assignee: { kind: 'agent', agentId } })
+      : err({ code: 'conversation_not_found', message: 'x' }),
+  unassign: async ({ workspaceId, conversationId }) =>
+    workspaceId === 'ws_1' && conversationId !== 'conv_missing'
+      ? ok({ ...cannedConversation, id: conversationId, assignee: null })
+      : err({ code: 'conversation_not_found', message: 'x' }),
+  close: async ({ workspaceId, conversationId }) =>
+    workspaceId === 'ws_1' && conversationId !== 'conv_missing'
+      ? ok({ ...cannedConversation, id: conversationId, status: 'closed' })
+      : err({ code: 'conversation_not_found', message: 'x' }),
+  reopen: async ({ workspaceId, conversationId }) =>
+    workspaceId === 'ws_1' && conversationId !== 'conv_missing'
+      ? ok({ ...cannedConversation, id: conversationId, status: 'open' })
+      : err({ code: 'conversation_not_found', message: 'x' }),
 };
 
 function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
@@ -139,6 +166,7 @@ function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     agentRegistry: createConnectionRegistry(),
     inboxRead,
     conversations: conversationsRepo,
+    manageConversation,
     auth,
     newSessionId: () => 'web_test_session',
     ...overrides,
@@ -411,6 +439,46 @@ describe('inbox routes (authed)', () => {
       url: '/inbox/conversations/conv_known/reply',
       payload: { text: 'x' },
     });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('POST assign authed → 200 + assignee = agent จาก token', async () => {
+    app = await buildApp(makeDeps());
+    const res = await app.inject({
+      method: 'POST',
+      url: '/inbox/conversations/conv_1/assign',
+      headers: BEARER,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      conversation: { id: 'conv_1', assignee: { kind: 'agent', agentId: 'agt_1' } },
+    });
+  });
+
+  it('POST close authed → 200 + status closed', async () => {
+    app = await buildApp(makeDeps());
+    const res = await app.inject({
+      method: 'POST',
+      url: '/inbox/conversations/conv_1/close',
+      headers: BEARER,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ conversation: { status: 'closed' } });
+  });
+
+  it('POST assign: conversation ไม่มี → 404', async () => {
+    app = await buildApp(makeDeps());
+    const res = await app.inject({
+      method: 'POST',
+      url: '/inbox/conversations/conv_missing/assign',
+      headers: BEARER,
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('POST assign: ไม่มี token → 401', async () => {
+    app = await buildApp(makeDeps());
+    const res = await app.inject({ method: 'POST', url: '/inbox/conversations/conv_1/assign' });
     expect(res.statusCode).toBe(401);
   });
 });

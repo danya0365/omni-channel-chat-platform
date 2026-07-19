@@ -1,9 +1,30 @@
 import { describe, expect, it } from 'vitest';
-import type { Message, MessageId, WorkspaceId } from '@omni/domain';
+import type {
+  ConversationId,
+  ConversationListItem,
+  Message,
+  MessageId,
+  WorkspaceId,
+} from '@omni/domain';
 import type { OutboxRow, OutboxStore } from '@omni/db';
 import { createOutboxConsumer } from './outbox-consumer';
 
 const NOW = new Date(Date.UTC(2026, 0, 2));
+
+const cannedConvItem: ConversationListItem = {
+  conversation: {
+    id: 'conv_1',
+    workspaceId: 'ws_1',
+    contactId: 'ctc_1',
+    channelId: 'chn_web',
+    status: 'closed',
+    assignee: { kind: 'agent', agentId: 'agt_9' },
+    createdAt: new Date(Date.UTC(2026, 0, 1)),
+    lastMessageAt: new Date(Date.UTC(2026, 0, 1)),
+  },
+  contactName: 'ลูกค้า',
+  lastMessage: null,
+};
 
 const cannedMessage: Message = {
   id: 'msg_1',
@@ -52,6 +73,7 @@ function makeConsumer(
   const drain = createOutboxConsumer({
     withOutboxTx: (run) => run(store),
     getMessage,
+    getConversation: async (_w: WorkspaceId, _c: ConversationId) => cannedConvItem,
     agentRegistry: {
       send: (key, data) => {
         sent.push({ key, data });
@@ -62,6 +84,17 @@ function makeConsumer(
   });
   return { drain, sent, state };
 }
+
+const conversationRow = (id: string): OutboxRow => ({
+  id,
+  type: 'conversation.updated',
+  payload: {
+    workspaceId: 'ws_1',
+    conversationId: 'conv_1',
+    occurredAt: '2026-01-01T00:00:00.000Z',
+  },
+  occurredAt: new Date(Date.UTC(2026, 0, 1)),
+});
 
 describe('outbox consumer drain', () => {
   it('fan-out event เข้า agentRegistry ตาม workspaceId + mark processed', async () => {
@@ -77,6 +110,21 @@ describe('outbox consumer drain', () => {
       message: { id: 'msg_1', content: { type: 'text', text: 'สวัสดี' } },
     });
     expect(state.processed).toEqual(['o1']);
+  });
+
+  it('conversation.updated → push conversation event (assignee/status)', async () => {
+    const { drain, sent } = makeConsumer([conversationRow('c1')]);
+    const n = await drain();
+
+    expect(n).toBe(1);
+    expect(JSON.parse(sent[0]?.data ?? '{}')).toMatchObject({
+      type: 'conversation',
+      conversation: {
+        id: 'conv_1',
+        status: 'closed',
+        assignee: { kind: 'agent', agentId: 'agt_9' },
+      },
+    });
   });
 
   it('ไม่มี unprocessed → 0 · ไม่ fan-out', async () => {

@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { idSchema } from '@omni/domain';
-import type { FastifyInstance } from 'fastify';
+import type {
+  AgentId,
+  Conversation,
+  ConversationId,
+  ManageConversationError,
+  Result,
+  WorkspaceId,
+} from '@omni/domain';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { AppDeps } from '../deps';
 import { authFromHeader, authFromToken } from '../auth/require-agent';
 import { toWireConversation, toWireMessage } from './inbox-wire';
@@ -21,7 +29,7 @@ const replyBodySchema = z.object({ text: z.string().min(1) });
  * ⚠️ workspaceId มาจาก token เท่านั้น (ไม่รับจาก client) — กัน cross-tenant
  */
 export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
-  const { auth, inboxRead, conversations, sendOutbound, agentRegistry } = deps;
+  const { auth, inboxRead, conversations, sendOutbound, manageConversation, agentRegistry } = deps;
 
   app.get<{ Querystring: { limit?: string; before?: string } }>(
     '/inbox/conversations',
@@ -92,6 +100,61 @@ export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
         delivered: result.value.delivered,
       });
     },
+  );
+
+  // ---- routing/assignment (Phase 4) — assign/unassign/close/reopen ----
+  // auth → validate → เรียก service → คืน patch (id/status/assignee) ให้ UI merge · event realtime sync agent อื่น
+  const handleManage = async (
+    req: FastifyRequest<{ Params: { conversationId: string } }>,
+    reply: FastifyReply,
+    run: (
+      workspaceId: WorkspaceId,
+      conversationId: ConversationId,
+      agentId: AgentId,
+    ) => Promise<Result<Conversation, ManageConversationError>>,
+  ): Promise<FastifyReply> => {
+    const ctx = authFromHeader(req, auth);
+    if (!ctx) return reply.code(401).send({ error: 'unauthorized' });
+    const convId = idSchema('conv').safeParse(req.params.conversationId);
+    if (!convId.success) return reply.code(400).send({ error: 'invalid_conversation_id' });
+
+    const result = await run(ctx.workspaceId, convId.data, ctx.agentId);
+    if (!result.ok) {
+      return reply
+        .code(result.error.code === 'conversation_not_found' ? 404 : 400)
+        .send({ error: result.error.code });
+    }
+    const c = result.value;
+    return reply.send({ conversation: { id: c.id, status: c.status, assignee: c.assignee } });
+  };
+
+  app.post<{ Params: { conversationId: string } }>(
+    '/inbox/conversations/:conversationId/assign',
+    (req, reply) =>
+      handleManage(req, reply, (workspaceId, conversationId, agentId) =>
+        manageConversation.assign({ workspaceId, conversationId, agentId }),
+      ),
+  );
+  app.post<{ Params: { conversationId: string } }>(
+    '/inbox/conversations/:conversationId/unassign',
+    (req, reply) =>
+      handleManage(req, reply, (workspaceId, conversationId) =>
+        manageConversation.unassign({ workspaceId, conversationId }),
+      ),
+  );
+  app.post<{ Params: { conversationId: string } }>(
+    '/inbox/conversations/:conversationId/close',
+    (req, reply) =>
+      handleManage(req, reply, (workspaceId, conversationId) =>
+        manageConversation.close({ workspaceId, conversationId }),
+      ),
+  );
+  app.post<{ Params: { conversationId: string } }>(
+    '/inbox/conversations/:conversationId/reopen',
+    (req, reply) =>
+      handleManage(req, reply, (workspaceId, conversationId) =>
+        manageConversation.reopen({ workspaceId, conversationId }),
+      ),
   );
 
   app.get<{ Querystring: { token?: string } }>('/inbox/ws', { websocket: true }, (socket, req) => {
