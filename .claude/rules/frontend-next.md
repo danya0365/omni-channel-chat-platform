@@ -120,7 +120,8 @@ apps/inbox/
 > app/ ทุกชนิดไฟล์ → check:app-routing · **ไม่เขียนกฎเดียวซ้ำ** · ปรับกฎ → แก้ที่ต้นทาง + อัปเดตตารางนี้
 
 **ก่อนบอกเสร็จ:** `pnpm gate` เขียว (รวม 3 ชั้น) + `pnpm --filter @omni/inbox build` / `--filter @omni/widget build` ผ่าน ·
-แตะหน้า inbox จริง → verify บน browser (ดู DoD ข้อ 3)
+แตะหน้า inbox จริง → verify บน browser (ดู DoD ข้อ 3) — ใช้ **Playwright e2e harness**: `pnpm --filter @omni/inbox e2e`
+(headless, spin up stack เอง · ดู `.claude/memory/reference/inbox-e2e-harness.md` + `apps/inbox/e2e/`)
 
 ## 6) Widget (Vite)
 

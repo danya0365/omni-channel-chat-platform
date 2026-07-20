@@ -30,13 +30,17 @@
 
 ## Working Log
 
-- [Phase 4 Progress](log/phase-4-progress.md) — **active** — routing/assignment + LINE channel (sub-phase B) เสร็จ+verify (gate+integration) · ยังไม่ commit · เหลือ verify browser inbox refactor
+- [Phase 4 Progress](log/phase-4-progress.md) — **active** — Phase 4 เสร็จทั้ง routing + LINE channel · verify ครบ (gate+integration+e2e) · commit+push แล้ว · ถัดไป = เปิด PR → Phase 5
 - [Phase 3 Progress](log/phase-3-progress.md) — Phase 3 จบแล้ว (agent inbox realtime + auth) — archive ได้
 - [Phase 2 Progress](log/phase-2-progress.md) — Phase 2 จบแล้ว (web channel e2e) — archive ได้
 
+## Go-to-Market
+
+- [Marketing Page Brief](log/marketing-page-brief.md) — **planned (ยังไม่เริ่ม)** — brief หน้า marketing/landing ให้ทีมขาย: features (built vs roadmap) · pain points · ROI/selling angles · สิ่งที่ทีม marketing ต้องมี + ต้องเคาะ (ICP/pricing/positioning)
+
 ## Reference
 
-<!-- pattern/สูตรที่ใช้ซ้ำ — ยังไม่มี -->
+- [Inbox e2e harness](reference/inbox-e2e-harness.md) — Playwright e2e (headless) verify browser ของ inbox · `pnpm --filter @omni/inbox e2e` (ต้อง db:up) — วิธีมาตรฐานปิด DoD ข้อ 3 ฝั่ง frontend
 
 ## Archived
 
