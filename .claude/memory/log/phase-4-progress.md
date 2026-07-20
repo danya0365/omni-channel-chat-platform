@@ -1,6 +1,6 @@
 ---
 name: phase-4-progress
-description: 'สถานะ Phase 4 (routing/assignment + LINE channel) — sub-phase A (routing) + sub-phase B (LINE channel) เสร็จ+verify แล้ว (gate เขียว + integration). เหลือ verify browser (inbox refactor) + LINE e2e จริง (ทำไม่ได้—ไม่มี bot)'
+description: 'สถานะ Phase 4 (routing + LINE channel) — เสร็จทั้ง sub-phase A+B, verify ครบ (gate+integration+e2e browser), commit+push แล้ว. ถัดไป = เปิด PR แล้วขึ้น Phase 5 (bot/automation+AI). อ่านตอนสรุป Phase 4 หรือเริ่ม Phase 5'
 metadata:
   node_type: memory
   type: log
@@ -19,7 +19,8 @@ metadata:
 
 - branch **`feature/phase-4-routing-line`** (แยกจาก PR Phase 1-3 ที่ `feature/phase-1-stack-skeleton`)
   - remote: `git@github.com:danya0365/omni-channel-chat-platform.git` · push แล้ว
-- **sub-phase A (routing/assignment) เสร็จ + verify ครบ** · **sub-phase B (LINE channel) เสร็จ + verify (gate+integration+e2e)** ← ยังไม่ commit
+- **sub-phase A (routing/assignment) เสร็จ + verify ครบ** · **sub-phase B (LINE channel) เสร็จ + verify (gate+integration+e2e)** · **commit + push แล้ว** (2 commits: `9cdd9e2` feat(channel-line) + `ea6632f` test(inbox) e2e บน `feature/phase-4-routing-line`)
+- ⭐ **ถัดไป**: เปิด PR (base `feature/phase-1-stack-skeleton`) · แล้วขยับ **Phase 5** (bot/automation keyword→canned→escalate + AI reply Claude API, ADR แยก, ปม PII)
 - gate เขียว **165 unit** + integration **28** · inbox build ผ่าน · **Playwright e2e 2 ผ่าน** (browser จริง)
 - ✅ เคลียร์แล้ว: verify browser inbox (Playwright e2e) · `/new-channel line` ([[line]] spec) · seed LINE demo channel (`chn_line_demo`)
 
