@@ -1,6 +1,6 @@
 ---
 name: phase-5-progress
-description: สถานะ Phase 5 (bot/automation + AI reply) — Increment 1 (domain) + 2 (db) + 3a (bot consumer rule-only) เขียวครบ (gate 203 + integration 40) · ถัดไป = 3b (AI adapter). ยังไม่ commit (working tree บน feature/phase-5-bot-automation). อ่านตอนทำ Phase 5 ต่อ / แตะ bot / outbox cursor / bot-anthropic
+description: สถานะ Phase 5 (bot/automation + AI reply) — Increment 1-3b เขียวครบ (gate 217 + integration 41) · 3a (rule-only) committed แล้ว (feat 5a8c79b) · 3b (AI adapter @omni/bot-anthropic) อยู่ใน working tree รอ commit. อ่านตอนทำ Phase 5 ต่อ / แตะ bot / outbox cursor / bot-anthropic / Claude API
 metadata:
   node_type: memory
   type: log
@@ -8,7 +8,7 @@ metadata:
   scope: global
   updated: 2026-07-20
   originSessionId: 9c11ffe5-d555-468b-8678-432ff977c6c2
-  modified: 2026-07-20T09:07:53.998Z
+  modified: 2026-07-20T09:57:00.948Z
 ---
 
 # Handoff — Phase 5 กำลังทำ (bot/automation + AI reply)
@@ -18,9 +18,9 @@ metadata:
 
 ## สถานะ (2026-07-20)
 
-- branch **`feature/phase-5-bot-automation`** (แตกจาก `main` ที่ทันแล้ว) · **ยังไม่ commit อะไรเลย** — ทุกอย่างอยู่ใน working tree (รอพี่สั่ง commit ตามกฎเหล็ก)
+- branch **`feature/phase-5-bot-automation`** · **inc 1+2+3a committed** (feat `5a8c79b` + docs `6d19cce`) · **3b อยู่ใน working tree รอ commit** (รอพี่สั่งตามกฎเหล็ก)
 - **ADR-0006 เขียนแล้ว** + pointer ใน MEMORY.md · decisions หลัก: consumer แยก (additive multi-subscriber outbox) · bot รับสายใหม่ก่อน (escalate=null queue) · rules ต่อ workspace · AI = adapter inject fetch · 5A+5B รวด
-- ⭐ **ถัดไป: Increment 3b** (AI adapter `@omni/bot-anthropic` raw-fetch) — 3a เขียวครบแล้ว ดูล่าง
+- ⭐ **Increment 1-3b เขียวครบ** (gate 217 + integration 41) — Phase 5 ครบ core flow (rule + AI fallback)
 
 ## ✅ Increment 1 — Domain (pure) — เขียว (gate 194 unit)
 
@@ -56,12 +56,15 @@ metadata:
 - **fix**: `outbox.created_at` + `outbox_cursors.last_created_at` → `timestamp(3)` (ms) · migration **0006** · round-trip JS Date ตรงเป๊ะ → cursor (created_at, id) เทียบถูก
 - ⚠️ เหลือ edge เชิงทฤษฎี (2 row ใน ms เดียว + id random uuidv7 sort สลับ + คั่น batch) = อาจ skip — ยอมรับได้ (bot best-effort/at-most-once ตาม ADR) · ถ้าต้อง exactly-once จริง ต้องใช้ monotonic seq
 
-**3b — AI reply (ถัดไป):**
+## ✅ Increment 3b — AI reply adapter — เขียว (gate 217 unit +14 · integration 41, +1)
 
-- adapter package **`@omni/bot-anthropic`** (เลียนแบบ channel-line) · **RAW FETCH + inject seam** (ไม่ใช่ `@anthropic-ai/sdk` — ดู ADR-0006 decision 4 + เหตุผลด้านล่าง) · `POST /v1/messages` · header `anthropic-version: 2023-06-01` + `x-api-key` · body `{model:'claude-opus-4-8', max_tokens, system, messages}` · **effort/max_tokens ต่ำ** (ตอบสั้น) · parse response ด้วย zod (`{content:[{type:'text',text}], stop_reason}`)
-- env `ANTHROPIC_API_KEY` (optional + warn pattern เหมือน AUTH secret · ดู server.ts/env.ts/wiring.ts ContainerConfig) · inject `anthropicFetch` seam (test hermetic)
-- policy: rule no_match + `aiEnabled` → ถาม Claude → ตอบได้=reply / ยอมแพ้=escalate · AI ล้ม/timeout → escalate
-- ⚠️ **PII**: per-workspace opt-in (aiEnabled default false) · ห้าม log prompt/response เต็ม · ส่งเฉพาะข้อความจำเป็น
+- **package `@omni/bot-anthropic`** (adapter ใหม่ · เลียนแบบ channel-line) — `createAnthropicBotReplier` implement domain port **`BotAiReplier`** · **RAW FETCH** `POST /v1/messages` · header `x-api-key` + `anthropic-version: 2023-06-01` · body `{model:'claude-opus-4-8', max_tokens:512, system, messages}` · inject `AnthropicFetch` seam (test hermetic) · **9 unit ครบ branch**
+- ⚠️ **Opus 4.8 wire (ยืนยันจาก claude-api skill)**: ห้ามส่ง `temperature/top_p/top_k` (400!) · **omit `thinking`** = ปิด thinking (ตอบเร็ว/สั้น) · system prompt สั่งตอบตรงๆ กัน reasoning รั่วเข้า visible response · AI ยอมแพ้ = ตอบ sentinel `[[ESCALATE]]` · refusal/ว่าง/sentinel → escalate · non-2xx/network/parse fail → err (consumer แปลงเป็น escalate)
+- domain **ports.ts**: `BotAiReplier`/`BotAiReplyInput`/`BotAiDecision`/`BotAiError`
+- **bot consumer**: dep เปลี่ยน `isBotEnabled` → `getBotConfig` (คืน config เอา `aiEnabled`) + optional `aiReply` · handleInbound: rule reply/escalate เหมือนเดิม · **no_match + aiEnabled + มี aiReply → ถาม AI** (ตอบได้=reply, own สายถ้าใหม่ · ยอมแพ้/err/ปิด=escalate) · aiDisabled → ไม่แตะ AI (ประหยัด) · +5 unit
+- **wire**: `ContainerConfig.anthropicApiKey?/anthropicFetch?` · สร้าง aiReply เมื่อมี key เท่านั้น (ไม่มี = rule-only) · env `ANTHROPIC_API_KEY` optional + warn pattern (server.ts) · **`buildBotConsumer` ย้ายไป `realtime/bot-wiring.ts`** (กัน wiring.ts เกิน 300 บรรทัด — max-lines) · server.ts `warnUnset` helper กัน main() complexity
+- integration `bot-flow` +1: inbound ไม่ match rule + aiEnabled → bot ถาม AI (fake fetch) → ตอบข้อความ AI persisted + assignee=bot
+- ⚠️ **PII**: per-workspace opt-in (aiEnabled default false) · ส่งเฉพาะข้อความล่าสุด · ไม่ log prompt/response เต็ม (เป็น external data flow — ADR-0006)
 
 ## Decision: bot-anthropic = raw fetch (ไม่ใช่ @anthropic-ai/sdk) — เคาะ 2026-07-20
 
@@ -69,12 +72,13 @@ metadata:
 
 ## วิธีรัน / verify
 
-- gate: `pnpm gate` (lint+typecheck+test 203+boundaries) · integration: `pnpm db:up` แล้ว `pnpm test:integration` (40)
+- gate: `pnpm gate` (lint+typecheck+test 217+boundaries 189 modules) · integration: `pnpm db:up` แล้ว `pnpm test:integration` (41)
 - migration ใหม่: `pnpm --filter @omni/db db:generate` (drizzle diff) · dev DB apply อัตโนมัติผ่าน `runMigrations` ใน integration test
 - ก่อน commit ต้องผ่าน gate + integration + (แตะ flow → verify จริง ตาม DoD ข้อ 3)
 
 ## Gotchas
 
-- โหลด `claude-api` skill ก่อนเขียนโค้ด Claude (5B) — แต่เราเลือก raw fetch จึงใช้แค่ wire shape (`/v1/messages`, model id, version header)
+- โหลด `claude-api` skill ก่อนเขียนโค้ด Claude (5B) — ยืนยัน model `claude-opus-4-8` + ห้าม sampling params บน Opus 4.8 (400) + omit thinking = ปิด
+- dependency-cruiser: `bot-*` เป็น adapter tier แล้ว (เพิ่ม `bot-` ใน rule `domain-is-pure` + `adapter-only-domain`) — adapter ใหม่ต้องขึ้นต้น `channel-`/`bot-` ถึงจะโดน enforce boundary
 - outbox มี 2 กลไก tracking: agent=`processed_at` (เดิม) · bot=cursor table (ใหม่) — additive, อย่าให้ bot ไปแตะ processed_at
 - bot reply → `outbound_message.sent` (ไม่ trigger bot ซ้ำ เพราะ bot subscribe แค่ inbound_message.received) · แต่ต้องกัน bot ตอบสายที่ assignee=agent
