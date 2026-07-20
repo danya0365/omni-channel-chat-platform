@@ -15,6 +15,8 @@ const envSchema = z.object({
   ALLOWED_ORIGINS: z.string().optional(),
   /** ส่ง session cookie เฉพาะ HTTPS — default true · dev http ตั้ง 'false' ได้ (ADR-0005) */
   COOKIE_SECURE: z.string().optional(),
+  /** key ของ Claude API — ตั้ง = เปิด AI fallback ของ bot (Phase 5B) · ไม่ตั้ง = bot ทำงาน rule-only */
+  ANTHROPIC_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,6 +1,8 @@
 import { applyBotRules } from '@omni/domain';
 import type {
   Assignee,
+  BotAiReplier,
+  BotDecision,
   BotRule,
   ChannelId,
   Conversation,
@@ -11,6 +13,7 @@ import type {
   MessageContent,
   MessageId,
   SendOutboundMessage,
+  WorkspaceBotConfig,
   WorkspaceId,
 } from '@omni/domain';
 import type { OutboxRow } from '@omni/db';
@@ -27,8 +30,8 @@ const ESCALATE_NOTICE: MessageContent = {
 export interface BotConsumerDeps {
   /** claim outbox batch ของ subscriber 'bot' (cursor bot เอง — ไม่แตะ processed_at ของ agent WS) */
   claimBatch(limit: number): Promise<OutboxRow[]>;
-  /** bot เปิดใช้ใน workspace นี้ไหม (ไม่มี config = ปิด) */
-  isBotEnabled(workspaceId: WorkspaceId): Promise<boolean>;
+  /** config automation ของ workspace (null = bot ปิด) — botEnabled/aiEnabled */
+  getBotConfig(workspaceId: WorkspaceId): Promise<WorkspaceBotConfig | null>;
   /** rules ที่ enabled ของ workspace+channel (รวม global) เรียง priority */
   listRules(workspaceId: WorkspaceId, channelId: ChannelId): Promise<BotRule[]>;
   /** อ่าน conversation (assignee) — ใช้ตัดสิน ownership */
@@ -42,6 +45,8 @@ export interface BotConsumerDeps {
   sendOutbound: SendOutboundMessage;
   /** ให้ bot รับสาย (assignBot) / คืนสายเข้า queue (escalate) */
   manage: Pick<ManageConversation, 'assignBot' | 'escalate'>;
+  /** (Phase 5B) ถาม AI ตอน rule ไม่ match + workspace เปิด aiEnabled · ไม่ inject = rule-only */
+  aiReply?: BotAiReplier;
   batchSize?: number;
 }
 
@@ -126,11 +131,36 @@ export function createBotConsumer(deps: BotConsumerDeps) {
     await send(ref, ESCALATE_NOTICE);
   }
 
+  /** (5B) rule ไม่ match + aiEnabled → ถาม AI · คืนข้อความถ้าตอบได้ · null = ยอมแพ้/ล้ม/ปิด → escalate */
+  async function tryAi(text: string, aiEnabled: boolean): Promise<string | null> {
+    if (!aiEnabled || !deps.aiReply) return null;
+    const result = await deps.aiReply.reply({ text });
+    return result.ok && result.value.kind === 'reply' ? result.value.text : null;
+  }
+
+  /** ตัดสิน action จาก decision ของ rule (reply/escalate/no_match→AI fallback) */
+  async function act(
+    ref: InboundRef,
+    ownership: Ownership,
+    text: string,
+    decision: BotDecision,
+    aiEnabled: boolean,
+  ) {
+    if (decision.kind === 'reply') return doReply(ref, ownership, decision.content);
+    if (decision.kind === 'escalate') return doEscalate(ref);
+    // no_match → AI (ถ้าเปิด) ตอบได้ → reply · ไม่ได้/ปิด → escalate
+    const aiText = await tryAi(text, aiEnabled);
+    return aiText != null
+      ? doReply(ref, ownership, { type: 'text', text: aiText })
+      : doEscalate(ref);
+  }
+
   /** ประมวลผล inbound หนึ่ง event → true ถ้า bot ลงมือ (reply/escalate) · false ถ้าเงียบ/ข้าม */
   async function handleInbound(payload: Record<string, unknown>): Promise<boolean> {
     const ref = parseInbound(payload);
     if (!ref) return false;
-    if (!(await deps.isBotEnabled(ref.ws))) return false;
+    const config = await deps.getBotConfig(ref.ws);
+    if (!config?.botEnabled) return false; // ไม่มี config หรือ ปิด → เงียบ (คง behavior เดิม)
 
     const conversation = await deps.getConversation(ref.ws, ref.conv);
     if (!conversation) return false;
@@ -143,12 +173,7 @@ export function createBotConsumer(deps: BotConsumerDeps) {
     if (text == null) return false; // ไม่ใช่ text (MVP bot ตอบ text อย่างเดียว) → ปล่อยให้ human ดู
 
     const decision = applyBotRules(text, await deps.listRules(ref.ws, ref.channelId));
-    if (decision.kind === 'reply') {
-      await doReply(ref, ownership, decision.content);
-      return true;
-    }
-    // escalate (keyword ขอคน) หรือ no_match (rule ไม่เจอ — 5B ค่อยแทรก AI ก่อนถึงตรงนี้)
-    await doEscalate(ref);
+    await act(ref, ownership, text, decision, config.aiEnabled);
     return true;
   }
 

@@ -136,6 +136,30 @@ export interface WorkspaceBotConfigRepository {
   get(workspaceId: WorkspaceId): Promise<WorkspaceBotConfig | null>;
 }
 
+/** ข้อมูลที่ AI ใช้ตัดสินใจตอบ (Phase 5B · MVP = ข้อความลูกค้าล่าสุดอย่างเดียว → ลด PII ที่ส่งออกนอกระบบ) */
+export interface BotAiReplyInput {
+  /** ข้อความลูกค้าล่าสุด (plaintext) */
+  text: string;
+}
+
+/** ผล AI: ตอบได้ (reply) หรือยอมแพ้/ต้องใช้คน (escalate) */
+export type BotAiDecision = { kind: 'reply'; text: string } | { kind: 'escalate' };
+
+export interface BotAiError {
+  code: 'ai_failed';
+  message: string;
+}
+
+/**
+ * BotAiReplier — ถาม AI ช่วยตอบลูกค้า (Phase 5B · ใช้เมื่อ rule ไม่ match + workspace เปิด aiEnabled)
+ * network boundary → คืน Result · caller (bot consumer) แปลง err/escalate → คืนสายเข้า queue (fail-safe หา human)
+ * ⚠️ PII: ข้อความลูกค้าวิ่งออกนอกระบบไป provider — ต้อง per-workspace opt-in + ห้าม log เต็ม (ดู ADR-0006)
+ * adapter (`@omni/bot-anthropic`) เป็นคน implement — domain รู้แค่ port นี้ (ไม่ผูก provider)
+ */
+export interface BotAiReplier {
+  reply(input: BotAiReplyInput): Promise<Result<BotAiDecision, BotAiError>>;
+}
+
 /** ---- Inbox read-model (Phase 3: agent inbox — query ล้วน ไม่มี business logic) ---- */
 
 /** สรุป conversation หนึ่งแถวใน inbox list (conversation + ชื่อ contact + ข้อความล่าสุด) */

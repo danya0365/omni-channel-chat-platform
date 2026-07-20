@@ -13,6 +13,7 @@
     "@fastify/cookie": "^11.0.2",
     "@fastify/cors": "^10.1.0",
     "@fastify/websocket": "^11.3.0",
+    "@omni/bot-anthropic": "workspace:*",
     "@omni/channel-line": "workspace:*",
     "@omni/channel-web": "workspace:*",
     "@omni/db": "workspace:*",

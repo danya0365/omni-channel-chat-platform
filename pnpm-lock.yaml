@@ -44,6 +44,9 @@ importers:
       '@fastify/websocket':
         specifier: ^11.3.0
         version: 11.3.0
+      '@omni/bot-anthropic':
+        specifier: workspace:*
+        version: link:../../packages/bot-anthropic
       '@omni/channel-line':
         specifier: workspace:*
         version: link:../../packages/channel-line
@@ -140,6 +143,19 @@ importers:
       vite:
         specifier: ^6.0.5
         version: 6.4.3(@types/node@22.20.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)
+
+  packages/bot-anthropic:
+    dependencies:
+      '@omni/domain':
+        specifier: workspace:*
+        version: link:../domain
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
 
   packages/channel-line:
     dependencies:

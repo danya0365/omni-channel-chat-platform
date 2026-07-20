@@ -5,16 +5,9 @@ import {
   createManageConversation,
   createPersistOutboundMessage,
 } from '@omni/domain';
-import type {
-  ChannelRepository,
-  ConversationRepository,
-  InboxReadRepository,
-  ManageConversation,
-  OutboundGateway,
-} from '@omni/domain';
+import type { ChannelRepository, ManageConversation, OutboundGateway } from '@omni/domain';
 import {
   createAgentRepository,
-  createBotRuleRepository,
   createChannelCredentialRepository,
   createChannelRepository,
   createContactRepository,
@@ -23,11 +16,9 @@ import {
   createIdGenerator,
   createInboxReadRepository,
   createMessageRepository,
-  createOutboxCursorStore,
   createOutboxEventBus,
   createOutboxStore,
   createWebRouteResolver,
-  createWorkspaceBotConfigRepository,
   loadEncryptionKey,
   systemClock,
 } from '@omni/db';
@@ -41,13 +32,14 @@ import {
   createLineProfileResolver,
 } from '@omni/channel-line';
 import type { LineCredentialResolver, LineFetch, LineProfileResolver } from '@omni/channel-line';
+import type { AnthropicFetch } from '@omni/bot-anthropic';
 import type { AppDeps } from './deps';
 import { createAuthService } from './auth/service';
 import { createDispatchOutboundGateway } from './outbound-dispatch';
 import { createRetryingOutboundGateway } from './outbound-retry';
 import { createConnectionRegistry } from './registry';
 import type { ConnectionRegistry } from './registry';
-import { createBotConsumer } from './realtime/bot-consumer';
+import { buildBotConsumer } from './realtime/bot-wiring';
 import { createOutboxConsumer } from './realtime/outbox-consumer';
 import { createOutboxRelay } from './realtime/pg-boss-relay';
 
@@ -73,6 +65,10 @@ export interface ContainerConfig {
   allowedOrigins?: string[];
   /** inject LINE fetch (push API) — test override เพื่อไม่ยิง api.line.me จริง · default = global fetch */
   lineFetch?: LineFetch;
+  /** ANTHROPIC_API_KEY — ตั้ง = เปิด AI fallback (bot ต้อง aiEnabled ต่อ workspace ด้วย) · ไม่ตั้ง = rule-only */
+  anthropicApiKey?: string;
+  /** inject Anthropic fetch — test override เพื่อไม่ยิง api.anthropic.com จริง · default = global fetch */
+  anthropicFetch?: AnthropicFetch;
 }
 
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
@@ -224,32 +220,6 @@ function buildManageConversation(handle: DbHandle, triggerDrain: () => void): Ma
 }
 
 /**
- * ประกอบ bot consumer (Phase 5) — subscribe outbox ด้วย cursor 'bot' (additive · ไม่แตะ agent WS consumer)
- * bot ตอบตาม rules ที่ workspace เปิดใช้ · reuse sendOutbound (persist→deliver→realtime) + manageConversation
- * แยก helper กัน God function ใน createContainer (bot repos ผูก pool — อ่านล้วน, write path เปิด tx เอง)
- */
-function buildBotConsumer(
-  handle: DbHandle,
-  conversations: ConversationRepository,
-  inboxRead: InboxReadRepository,
-  sendOutbound: AppDeps['sendOutbound'],
-  manageConversation: ManageConversation,
-): () => Promise<number> {
-  const cursorStore = createOutboxCursorStore(handle.db);
-  const botRules = createBotRuleRepository(handle.db);
-  const botConfig = createWorkspaceBotConfigRepository(handle.db);
-  return createBotConsumer({
-    claimBatch: (limit) => cursorStore.claimBatch('bot', limit),
-    isBotEnabled: async (ws) => (await botConfig.get(ws))?.botEnabled ?? false,
-    listRules: (ws, channelId) => botRules.listEnabled(ws, channelId),
-    getConversation: (ws, conv) => conversations.findById(ws, conv),
-    getMessage: (ws, msgId) => inboxRead.getMessageById(ws, msgId),
-    sendOutbound,
-    manage: manageConversation,
-  });
-}
-
-/**
  * Composition root จริง — ต่อ DB + repos + services + WS registry + outbound gateway + outbox realtime
  * จุดเดียวที่ adapter (db, channel-web) มาเจอกัน (structural typing bridge resolver ↔ gateway)
  *
@@ -308,6 +278,10 @@ export function createContainer(config: ContainerConfig): Container {
     inboxRead,
     sendOutbound,
     manageConversation,
+    {
+      apiKey: config.anthropicApiKey,
+      fetch: config.anthropicFetch,
+    },
   );
   let inFlightBotDrain: Promise<unknown> = Promise.resolve();
   const triggerBotDrain = (): void => {

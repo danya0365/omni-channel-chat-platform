@@ -14,6 +14,7 @@ import {
 } from '@omni/db';
 import type { DbHandle } from '@omni/db';
 import type { Assignee } from '@omni/domain';
+import type { AnthropicFetch } from '@omni/bot-anthropic';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app';
 import { createContainer } from './wiring';
@@ -32,6 +33,15 @@ let seedHandle: DbHandle;
 let container: Container;
 let app: FastifyInstance;
 let baseUrl: string;
+/** mutable AI fetch — test ตั้งก่อน trigger · default = ยอมแพ้ (escalate) · inject เข้า container (hermetic) */
+let anthropicFetchImpl: AnthropicFetch = async () => ({
+  ok: true,
+  status: 200,
+  json: async () => ({
+    content: [{ type: 'text', text: '[[ESCALATE]]' }],
+    stop_reason: 'end_turn',
+  }),
+});
 
 beforeAll(async () => {
   seedHandle = createDb(DATABASE_URL);
@@ -46,9 +56,20 @@ beforeEach(async () => {
   await seedHandle.db.execute(sql`truncate table ${workspaces} restart identity cascade`);
   // outbox_cursors เป็น global (ไม่มี FK → workspaces) cascade ไม่ล้าง — reset กัน cursor 'bot' ค้างข้ามเทสต์
   await seedHandle.db.execute(sql`truncate table ${outboxCursors}`);
+  // default AI = escalate (สาย aiEnabled=false ในเทสต์ส่วนใหญ่ไม่เรียก AI อยู่แล้ว) · เทสต์ 5B override impl
+  anthropicFetchImpl = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      content: [{ type: 'text', text: '[[ESCALATE]]' }],
+      stop_reason: 'end_turn',
+    }),
+  });
   container = createContainer({
     databaseUrl: DATABASE_URL,
     authSecret: 'integration-test-secret-16+',
+    anthropicApiKey: 'sk-integration-test',
+    anthropicFetch: (url, init) => anthropicFetchImpl(url, init),
   });
   app = await buildApp(container.deps);
   await app.listen({ port: 0, host: '127.0.0.1' });
@@ -63,7 +84,9 @@ afterEach(async () => {
 });
 
 /** seed workspace + web channel + เปิด bot + demo rules (คืน id ที่ใช้ยิง endpoint) */
-async function seedBotWorkspace(): Promise<{ workspaceId: string; channelId: string }> {
+async function seedBotWorkspace(
+  aiEnabled = false,
+): Promise<{ workspaceId: string; channelId: string }> {
   const gen = createIdGenerator();
   const workspaceId = gen('ws');
   const channelId = gen('chn');
@@ -73,7 +96,7 @@ async function seedBotWorkspace(): Promise<{ workspaceId: string; channelId: str
     .values({ id: channelId, workspaceId, type: 'web', displayName: 'Web bot e2e' });
   await seedHandle.db
     .insert(workspaceBotConfig)
-    .values({ workspaceId, botEnabled: true, aiEnabled: false });
+    .values({ workspaceId, botEnabled: true, aiEnabled });
   await seedHandle.db.insert(botRules).values([
     {
       id: gen('botr'),
@@ -207,5 +230,49 @@ describe('bot automation e2e (integration — ต้อง pnpm db:up)', () => {
     const rows = await msgRows(workspaceId);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.direction).toBe('inbound');
+  });
+
+  it('5B: no_match + aiEnabled → bot ถาม AI (fake) → ตอบข้อความ AI จริงลง DB', async () => {
+    const { workspaceId, channelId } = await seedBotWorkspace(true); // aiEnabled
+    // fake Claude ตอบข้อความช่วยเหลือ (ไม่ยิง api.anthropic.com จริง)
+    anthropicFetchImpl = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        content: [{ type: 'text', text: 'ร้านเราเปิดทุกวัน 9 โมงถึง 6 โมงเย็นครับ 😊' }],
+        stop_reason: 'end_turn',
+      }),
+    });
+
+    const sessionRes = await fetch(`${baseUrl}/channels/web/${channelId}/sessions`, {
+      method: 'POST',
+    });
+    const { sessionId } = (await sessionRes.json()) as { sessionId: string };
+
+    // ข้อความที่ไม่ match rule ใดๆ (ไม่มี "สวัสดี"/"แอดมิน") → no_match → AI fallback
+    const inbound = await postJson<{ conversationId: string }>(
+      `/channels/web/${channelId}/messages`,
+      { sessionId, text: 'ร้านเปิดกี่โมงคะ', contactName: 'ลูกค้า AI' },
+    );
+    const conversationId = inbound.json.conversationId;
+
+    // bot ตอบข้อความจาก AI (outbound sender bot) → persist จริง
+    const afterAi = await waitForRows(
+      () => msgRows(workspaceId),
+      (rows) => rows.some((r) => r.direction === 'outbound'),
+    );
+    const aiReply = afterAi.find((r) => r.direction === 'outbound');
+    expect(aiReply?.sender).toEqual({ kind: 'bot' });
+    expect(aiReply?.content).toEqual({
+      type: 'text',
+      text: 'ร้านเราเปิดทุกวัน 9 โมงถึง 6 โมงเย็นครับ 😊',
+    });
+
+    // สายใหม่ → bot รับสาย (assignee=bot) เพราะ AI ตอบได้ (ไม่ escalate)
+    const [conv] = await waitForRows(
+      () => convRow(conversationId),
+      (rows) => (rows[0]?.assignee as Assignee | null)?.kind === 'bot',
+    );
+    expect(conv?.assignee).toEqual({ kind: 'bot' });
   });
 });
