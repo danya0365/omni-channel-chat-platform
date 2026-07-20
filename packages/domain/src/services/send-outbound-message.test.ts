@@ -61,6 +61,7 @@ function setup(
   const messages: MessageRepository = {
     insert: async (_workspaceId, message) => {
       store.messages.push(message);
+      return { inserted: true };
     },
   };
 

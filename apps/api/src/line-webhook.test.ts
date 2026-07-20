@@ -59,6 +59,7 @@ const cannedIngestResult: IngestInboundResult = {
   } satisfies Conversation,
   contact: { id: 'ctc_1', workspaceId: 'ws_1', displayName: null, createdAt: AT } satisfies Contact,
   created: { contact: true, conversation: true },
+  deduped: false,
 };
 
 const channels: ChannelRepository = {

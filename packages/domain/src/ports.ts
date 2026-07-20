@@ -80,7 +80,11 @@ export interface ConversationRepository {
 }
 
 export interface MessageRepository {
-  insert(workspaceId: WorkspaceId, message: Message): Promise<void>;
+  /**
+   * persist message · คืน `inserted: false` ถ้าชน unique `external_id` (= webhook redelivery ซ้ำ)
+   * → caller (ingest) ข้าม publish/touch ให้ idempotent · `external_id = null` (web/outbound) ไม่ dedup
+   */
+  insert(workspaceId: WorkspaceId, message: Message): Promise<{ inserted: boolean }>;
 }
 
 /**

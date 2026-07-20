@@ -62,6 +62,7 @@ const cannedIngestResult: IngestInboundResult = {
   conversation: cannedConversation,
   contact: cannedContact,
   created: { contact: true, conversation: true },
+  deduped: false,
 };
 const cannedOutbound: Message = {
   ...cannedMessage,

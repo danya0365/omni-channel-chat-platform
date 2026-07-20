@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "ux_messages_external" ON "messages" USING btree ("workspace_id","external_id") WHERE "messages"."external_id" is not null;
