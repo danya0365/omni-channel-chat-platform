@@ -11,6 +11,10 @@ const envSchema = z.object({
    * prod ต้องตั้ง (dev มี default + warning ใน server.ts) · rotate = ต้อง re-encrypt (ดู ADR-0004)
    */
   CHANNEL_ENCRYPTION_KEY: z.string().optional(),
+  /** origins ของ inbox ที่ยอมให้ยิง state-changing request (CSRF Origin check) — comma-separated · prod ต้องตั้ง */
+  ALLOWED_ORIGINS: z.string().optional(),
+  /** ส่ง session cookie เฉพาะ HTTPS — default true · dev http ตั้ง 'false' ได้ (ADR-0005) */
+  COOKIE_SECURE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

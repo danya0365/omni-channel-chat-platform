@@ -21,11 +21,23 @@ async function main(): Promise<void> {
   if (!env.CHANNEL_ENCRYPTION_KEY) {
     console.warn('CHANNEL_ENCRYPTION_KEY ไม่ได้ตั้ง — ใช้ dev key default (อย่าใช้ใน production)');
   }
+  const allowedOrigins =
+    env.ALLOWED_ORIGINS?.split(',')
+      .map((s) => s.trim())
+      .filter(Boolean) ?? [];
+  if (allowedOrigins.length === 0) {
+    console.warn(
+      'ALLOWED_ORIGINS ไม่ได้ตั้ง — CSRF Origin check ปิดอยู่ (prod ต้องตั้ง origin ของ inbox)',
+    );
+  }
 
   const container = createContainer({
     databaseUrl,
     authSecret,
     channelEncryptionKey: env.CHANNEL_ENCRYPTION_KEY,
+    // dev รันบน http localhost — Chromium ยอมส่ง Secure cookie ให้ localhost · ตั้ง COOKIE_SECURE=false ถ้าจำเป็น
+    cookieSecure: env.COOKIE_SECURE !== 'false',
+    allowedOrigins,
   });
   const app = await buildApp(container.deps);
 

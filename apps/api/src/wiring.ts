@@ -57,6 +57,10 @@ export interface ContainerConfig {
   channelEncryptionKey?: string;
   /** อายุ token (วินาที) — default 12 ชม. */
   tokenTtlSec?: number;
+  /** ส่ง session cookie เฉพาะ HTTPS — prod=true (default) · dev/test อาจตั้ง false */
+  cookieSecure?: boolean;
+  /** origins ที่ยอมให้ยิง state-changing request (CSRF Origin check) — prod ตั้งเป็น origin ของ inbox */
+  allowedOrigins?: string[];
   /** inject LINE fetch (push API) — test override เพื่อไม่ยิง api.line.me จริง · default = global fetch */
   lineFetch?: LineFetch;
 }
@@ -283,6 +287,13 @@ export function createContainer(config: ContainerConfig): Container {
     tokenTtlSec: config.tokenTtlSec ?? DEFAULT_TOKEN_TTL_SEC,
   });
 
+  const session: AppDeps['session'] = {
+    cookieName: 'session',
+    secure: config.cookieSecure ?? true,
+    maxAgeSec: config.tokenTtlSec ?? DEFAULT_TOKEN_TTL_SEC,
+    allowedOrigins: config.allowedOrigins ?? [],
+  };
+
   const relay = createOutboxRelay(config.databaseUrl, drain);
 
   const deps: AppDeps = {
@@ -295,6 +306,7 @@ export function createContainer(config: ContainerConfig): Container {
     conversations,
     manageConversation,
     auth,
+    session,
     newSessionId: () => `web_${randomUUID()}`,
     lineCredentials,
     lineProfile,

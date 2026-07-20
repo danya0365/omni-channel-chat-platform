@@ -16,6 +16,7 @@
 - [0002 Stack & Repo Layout](decisions/0002-stack-and-repo-layout.md) — เคาะ stack (Node/TS, Fastify, Postgres+Drizzle, Next.js, WS) + โครง monorepo + multi-tenant + gate
 - [0003 Phase 3 Inbox Realtime + Auth](decisions/0003-phase-3-inbox-realtime-auth.md) — realtime ฝั่ง agent = transactional outbox + pg-boss (เปิด seam) · auth ขั้นต่ำ = signed-session (JWT ฝัง workspaceId)
 - [0004 Phase 4 Routing + LINE Channel](decisions/0004-phase-4-routing-and-line-channel.md) — routing = manual assign/close (verify ได้) · LINE = adapter mirror channel-web (HMAC, push) · credential เก็บ DB ต่อ channel แบบ encrypted (AES-GCM)
+- [0005 Auth Transport httpOnly Cookie](decisions/0005-auth-transport-httponly-cookie.md) — ย้าย auth จาก localStorage token → httpOnly cookie (SameSite=Strict) + CSRF Origin check + CORS credentials + WS cookie · ปลด server-first RSC
 
 ## Active Channels
 
