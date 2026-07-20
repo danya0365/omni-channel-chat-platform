@@ -3,8 +3,8 @@ import type {
   ConversationRepository,
   InboxReadRepository,
   ManageConversation,
+  SendOutboundMessage,
   createIngestInboundMessage,
-  createSendOutboundMessage,
 } from '@omni/domain';
 import type { LineCredentialResolver } from '@omni/channel-line';
 import type { AuthService } from './auth/service';
@@ -19,7 +19,7 @@ import type { ConnectionRegistry } from './registry';
 export interface AppDeps {
   channels: ChannelRepository;
   ingest: ReturnType<typeof createIngestInboundMessage>;
-  sendOutbound: ReturnType<typeof createSendOutboundMessage>;
+  sendOutbound: SendOutboundMessage;
   /** registry ของ web widget (key = session ลูกค้า) — push outbound เข้า widget */
   registry: ConnectionRegistry;
   /** registry ของ agent inbox (key = workspaceId) — push event realtime เข้าจอทีมงาน (Phase 3) */

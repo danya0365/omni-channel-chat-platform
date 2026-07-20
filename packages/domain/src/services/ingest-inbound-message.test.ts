@@ -79,6 +79,7 @@ function setup() {
       store.messages.push(message);
       return { inserted: true };
     },
+    updateStatus: async () => {},
   };
 
   const events: EventBus = {

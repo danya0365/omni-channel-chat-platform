@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { MessageRepository } from '@omni/domain';
 import type { Executor } from '../client';
 import { messages } from '../schema';
@@ -22,6 +22,12 @@ export function createMessageRepository(db: Executor): MessageRepository {
         })
         .returning({ id: messages.id });
       return { inserted: inserted.length > 0 };
+    },
+    updateStatus: async (workspaceId, messageId, status) => {
+      await db
+        .update(messages)
+        .set({ status })
+        .where(and(eq(messages.workspaceId, workspaceId), eq(messages.id, messageId)));
     },
   };
 }

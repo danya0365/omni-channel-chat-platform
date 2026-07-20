@@ -6,7 +6,7 @@ import type { Agent } from './schema/agent';
 import type { Channel } from './schema/channel';
 import type { Contact, ContactIdentity } from './schema/contact';
 import type { Assignee, Conversation, ConversationStatus } from './schema/conversation';
-import type { Message, MessageContent, MessageDirection } from './schema/message';
+import type { DeliveryStatus, Message, MessageContent, MessageDirection } from './schema/message';
 
 /**
  * ChannelRepository — resolve channel จาก id
@@ -85,6 +85,16 @@ export interface MessageRepository {
    * → caller (ingest) ข้าม publish/touch ให้ idempotent · `external_id = null` (web/outbound) ไม่ dedup
    */
   insert(workspaceId: WorkspaceId, message: Message): Promise<{ inserted: boolean }>;
+
+  /**
+   * อัปเดตสถานะ delivery ของ message (เช่น outbound deliver ล้ม → 'failed')
+   * เรียก **นอก tx** หลัง persist — deliver เป็น network boundary ไม่ควรถือ DB tx ค้าง
+   */
+  updateStatus(
+    workspaceId: WorkspaceId,
+    messageId: MessageId,
+    status: DeliveryStatus,
+  ): Promise<void>;
 }
 
 /**
