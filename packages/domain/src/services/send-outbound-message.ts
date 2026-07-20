@@ -124,19 +124,22 @@ export function createPersistOutboundMessage(deps: PersistOutboundDeps) {
   };
 }
 
-/** deps ของเฟส deliver — ยิงช่องทาง + อัปสถานะเมื่อผลออก (นอก tx) */
+/** deps ของเฟส deliver — ยิงช่องทาง + อัปสถานะ/แจ้ง event เมื่อผลออก (นอก tx) */
 export interface DeliverOutboundDeps {
   outbound: OutboundGateway;
   messages: MessageRepository;
+  events: EventBus;
+  now: Clock;
 }
 
 /**
  * เฟส 2 — deliver message ที่ persist แล้วออกช่องทาง · **รันนอก DB tx** (network boundary)
- *   ยิง outbound.send → สำเร็จ: คืน delivered/externalId · ล้ม (retry หมดแล้ว): mark 'failed' + คืน send_failed
+ *   ยิง outbound.send → สำเร็จ: คืน delivered/externalId · ล้ม (retry หมดแล้ว): mark 'failed' +
+ *   publish `outbound_message.failed` (→ agent เห็นสถานะ realtime) + คืน send_failed
  * message ยัง persist เป็นความจริงเสมอ (persist-before-deliver) — ล้มแค่สะท้อนสถานะ ไม่ลบ
  */
 export function createDeliverOutboundMessage(deps: DeliverOutboundDeps) {
-  const { outbound, messages } = deps;
+  const { outbound, messages, events, now } = deps;
 
   return async function deliverOutboundMessage(
     message: Message,
@@ -144,6 +147,14 @@ export function createDeliverOutboundMessage(deps: DeliverOutboundDeps) {
     const receipt = await outbound.send(message);
     if (!receipt.ok) {
       await messages.updateStatus(message.workspaceId, message.id, 'failed');
+      await events.publish({
+        type: 'outbound_message.failed',
+        workspaceId: message.workspaceId,
+        channelId: message.channelId,
+        conversationId: message.conversationId,
+        messageId: message.id,
+        occurredAt: now(),
+      });
       return err({ code: 'send_failed', message: receipt.error.message });
     }
 

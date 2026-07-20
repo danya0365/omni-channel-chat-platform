@@ -8,7 +8,7 @@ export interface UseMessages {
   messages: WireMessage[];
   /** โหลดประวัติของสายที่เลือก (ล้างของเดิมก่อน) */
   loadFor: (conversationId: string) => Promise<void>;
-  /** append ข้อความ realtime (กัน duplicate ด้วย id) */
+  /** upsert ข้อความ realtime — id ใหม่ = append · id เดิม = replace (อัปสถานะ เช่น sent→failed) */
   append: (message: WireMessage) => void;
   /** ส่งข้อความตอบ · คืน true ถ้าสำเร็จ (ReplyForm จะเคลียร์ช่อง) */
   send: (conversationId: string, text: string) => Promise<boolean>;
@@ -22,7 +22,15 @@ export function useMessages(token: string, onAuthError: () => void): UseMessages
   const [messages, setMessages] = useState<WireMessage[]>([]);
 
   const append = useCallback((message: WireMessage) => {
-    setMessages((prev) => (prev.some((m) => m.id === message.id) ? prev : [...prev, message]));
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === message.id);
+      if (idx === -1) return [...prev, message]; // ใหม่ → ต่อท้าย
+      const existing = prev[idx];
+      if (existing && existing.status === message.status) return prev; // ไม่มีอะไรเปลี่ยน
+      const next = prev.slice(); // id เดิม + status เปลี่ยน (sent→failed) → replace คงตำแหน่ง
+      next[idx] = message;
+      return next;
+    });
   }, []);
 
   const loadFor = useCallback(

@@ -19,6 +19,9 @@ export function MessageBubble({ message }: { message: WireMessage }) {
         <p className={cn('mt-0.5 text-[10px]', mine ? 'text-on-brand/70' : 'text-muted')}>
           {timeLabel(message.at)}
         </p>
+        {mine && message.status === 'failed' && (
+          <p className="mt-0.5 text-[10px] font-medium text-error">⚠️ ส่งไม่สำเร็จ</p>
+        )}
       </div>
     </div>
   );

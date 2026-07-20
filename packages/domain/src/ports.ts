@@ -206,6 +206,16 @@ export const domainEventSchema = z.discriminatedUnion('type', [
     messageId: idSchema('msg'),
     occurredAt: z.date(),
   }),
+  // outbound ส่งไม่ถึงช่องทาง (deliver ล้มหลัง retry) → agent เห็นสถานะ message เป็น 'failed' realtime
+  // (consumer re-fetch message ตาม id เหมือน outbound_message.sent — status ตอนนี้ = failed แล้ว)
+  z.object({
+    type: z.literal('outbound_message.failed'),
+    workspaceId: idSchema('ws'),
+    channelId: idSchema('chn'),
+    conversationId: idSchema('conv'),
+    messageId: idSchema('msg'),
+    occurredAt: z.date(),
+  }),
   // conversation เปลี่ยน (assign/unassign/close/reopen — Phase 4) → agent เห็น badge/สถานะ sync
   // consumer re-fetch conversation list-item ตาม id (ไม่มี messageId)
   z.object({

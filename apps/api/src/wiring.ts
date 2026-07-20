@@ -29,7 +29,7 @@ import {
   createLineHttpPushClient,
   createLineOutboundGateway,
 } from '@omni/channel-line';
-import type { LineCredentialResolver } from '@omni/channel-line';
+import type { LineCredentialResolver, LineFetch } from '@omni/channel-line';
 import type { AppDeps } from './deps';
 import { createAuthService } from './auth/service';
 import { createDispatchOutboundGateway } from './outbound-dispatch';
@@ -55,6 +55,8 @@ export interface ContainerConfig {
   channelEncryptionKey?: string;
   /** อายุ token (วินาที) — default 12 ชม. */
   tokenTtlSec?: number;
+  /** inject LINE fetch (push API) — test override เพื่อไม่ยิง api.line.me จริง · default = global fetch */
+  lineFetch?: LineFetch;
 }
 
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
@@ -75,6 +77,7 @@ function buildChannelIo(
   registry: ConnectionRegistry,
   channels: ChannelRepository,
   channelEncryptionKey: string | undefined,
+  lineFetch: LineFetch | undefined,
 ): { outbound: OutboundGateway; lineCredentials: LineCredentialResolver } {
   const routeResolver = createWebRouteResolver(handle.db);
 
@@ -88,7 +91,7 @@ function buildChannelIo(
   const lineOutbound = createLineOutboundGateway({
     resolveRoute: routeResolver,
     resolveCredentials: lineCredentials,
-    push: createLineHttpPushClient(),
+    push: createLineHttpPushClient(lineFetch),
   });
   const dispatch = createDispatchOutboundGateway({
     resolveChannelType: async (message) => {
@@ -127,10 +130,16 @@ function buildSendOutbound(
     triggerDrain();
     if (!persisted.ok) return persisted;
 
-    return createDeliverOutboundMessage({
+    // deliver นอก tx (network) — ล้ม → deliver service mark 'failed' + publish outbound_message.failed
+    // (event เขียน outbox บน pool = single insert atomic) แล้ว drain ให้ agent เห็นสถานะ realtime
+    const delivered = await createDeliverOutboundMessage({
       outbound,
       messages: createMessageRepository(handle.db),
+      events: createOutboxEventBus(handle.db),
+      now: systemClock,
     })(persisted.value.message);
+    if (!delivered.ok) triggerDrain();
+    return delivered;
   };
 }
 
@@ -159,6 +168,7 @@ export function createContainer(config: ContainerConfig): Container {
     registry,
     channels,
     config.channelEncryptionKey,
+    config.lineFetch,
   );
 
   // Outbox consumer — fan-out event เข้า agent WS (drain ใน tx: fetch SKIP LOCKED → send → mark)

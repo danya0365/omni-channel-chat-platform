@@ -105,7 +105,7 @@ function setup(
     generateId,
     now,
   });
-  const deliver = createDeliverOutboundMessage({ outbound, messages });
+  const deliver = createDeliverOutboundMessage({ outbound, messages, events, now });
   const send = async (
     command: SendOutboundCommand,
   ): Promise<Result<SendOutboundResult, SendOutboundError>> => {
@@ -229,6 +229,10 @@ describe('deliverOutboundMessage (เฟส 2 — นอก tx)', () => {
     expect(store.sent).toHaveLength(0);
     // สถานะถูกอัปเป็น failed (message ยัง persist เป็นความจริง — แค่สะท้อนว่าส่งไม่ถึง)
     expect(store.statusUpdates).toEqual([{ id: 'msg_1', status: 'failed' }]);
+    // publish outbound_message.failed → agent เห็นสถานะ realtime
+    expect(store.events).toContainEqual(
+      expect.objectContaining({ type: 'outbound_message.failed', messageId: 'msg_1' }),
+    );
   });
 });
 
@@ -263,8 +267,11 @@ describe('send (persist → deliver ประกอบเหมือน composi
     // persist เกิดก่อน deliver — message + event เป็นความจริงแม้ช่องทางล้ม (agent เห็น reply)
     expect(store.messages).toHaveLength(1);
     expect(store.sent).toHaveLength(0);
-    expect(store.events).toHaveLength(1);
-    expect(store.events[0]?.type).toBe('outbound_message.sent');
+    // 2 event: outbound_message.sent (persist) → agent เห็น reply · outbound_message.failed (deliver) → เห็นสถานะ
+    expect(store.events.map((e) => e.type)).toEqual([
+      'outbound_message.sent',
+      'outbound_message.failed',
+    ]);
     expect(store.messages[0]?.status).toBe('failed');
   });
 });
