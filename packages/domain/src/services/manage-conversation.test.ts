@@ -76,6 +76,29 @@ describe('manageConversation', () => {
     expect(store.conversations[0]?.assignee).toBeNull();
   });
 
+  it('assignBot → assignee = {kind:bot} + publish conversation.updated (Phase 5)', async () => {
+    const { store, manage } = setup();
+    const res = await manage.assignBot(ref);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.assignee).toEqual({ kind: 'bot' });
+    expect(store.conversations[0]?.assignee).toEqual({ kind: 'bot' });
+    expect(store.events[0]).toMatchObject({
+      type: 'conversation.updated',
+      conversationId: 'conv_1',
+    });
+  });
+
+  it('escalate → คืนสายเข้า queue (assignee = null) จาก bot', async () => {
+    const { store, manage } = setup([{ ...seededConversation, assignee: { kind: 'bot' } }]);
+    const res = await manage.escalate(ref);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.value.assignee).toBeNull();
+    expect(store.conversations[0]?.assignee).toBeNull();
+    expect(store.events).toHaveLength(1);
+  });
+
   it('close → status closed · reopen → status open', async () => {
     const { store, manage } = setup();
     const closed = await manage.close(ref);

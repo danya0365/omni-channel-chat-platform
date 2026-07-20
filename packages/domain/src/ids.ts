@@ -14,6 +14,7 @@ export const ID_PREFIX = {
   conversation: 'conv',
   message: 'msg',
   agent: 'agt',
+  botRule: 'botr',
 } as const;
 
 export type IdPrefix = (typeof ID_PREFIX)[keyof typeof ID_PREFIX];
@@ -28,6 +29,7 @@ export type ContactIdentityId = Id<'idn'>;
 export type ConversationId = Id<'conv'>;
 export type MessageId = Id<'msg'>;
 export type AgentId = Id<'agt'>;
+export type BotRuleId = Id<'botr'>;
 
 /** ประกอบ id จาก prefix + uuid (pure) */
 export const makeId = <P extends IdPrefix>(prefix: P, uuid: string): Id<P> => `${prefix}_${uuid}`;

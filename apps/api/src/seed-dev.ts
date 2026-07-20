@@ -1,10 +1,12 @@
 import {
   agents,
+  botRules,
   channels,
   createChannelCredentialRepository,
   createDb,
   loadEncryptionKey,
   runMigrations,
+  workspaceBotConfig,
   workspaces,
 } from '@omni/db';
 import { hashPassword } from './auth/password';
@@ -74,6 +76,68 @@ async function main(): Promise<void> {
         passwordHash: await hashPassword(DEMO_AGENT_PASSWORD),
         displayName: 'ทีมงาน Demo',
       })
+      .onConflictDoNothing();
+
+    // Phase 5 bot — เปิด automation ให้ ws_demo (aiEnabled=false · AI ค่อยเปิดตอน 5B ต่อ ANTHROPIC_API_KEY)
+    await handle.db
+      .insert(workspaceBotConfig)
+      .values({ workspaceId: DEMO_WORKSPACE_ID, botEnabled: true, aiEnabled: false })
+      .onConflictDoNothing();
+    // demo rules (global — ทุกช่องทางใน ws) · id คงที่ = re-seed ไม่ซ้ำ (onConflictDoNothing บน PK)
+    // priority น้อยตรวจก่อน → escalate keyword (5) มาก่อน canned reply (10/20)
+    await handle.db
+      .insert(botRules)
+      .values([
+        {
+          id: 'botr_demo_human',
+          workspaceId: DEMO_WORKSPACE_ID,
+          channelId: null,
+          matchType: 'contains',
+          pattern: 'คุยกับคน',
+          action: { kind: 'escalate' },
+          enabled: true,
+          priority: 5,
+        },
+        {
+          id: 'botr_demo_admin',
+          workspaceId: DEMO_WORKSPACE_ID,
+          channelId: null,
+          matchType: 'contains',
+          pattern: 'แอดมิน',
+          action: { kind: 'escalate' },
+          enabled: true,
+          priority: 5,
+        },
+        {
+          id: 'botr_demo_greeting',
+          workspaceId: DEMO_WORKSPACE_ID,
+          channelId: null,
+          matchType: 'contains',
+          pattern: 'สวัสดี',
+          action: {
+            kind: 'reply',
+            content: { type: 'text', text: 'สวัสดีครับ! 😊 ยินดีต้อนรับครับ มีอะไรให้ช่วยไหมครับ' },
+          },
+          enabled: true,
+          priority: 10,
+        },
+        {
+          id: 'botr_demo_price',
+          workspaceId: DEMO_WORKSPACE_ID,
+          channelId: null,
+          matchType: 'contains',
+          pattern: 'ราคา',
+          action: {
+            kind: 'reply',
+            content: {
+              type: 'text',
+              text: 'ดูรายละเอียดราคาทั้งหมดได้ที่หน้าเว็บของเราเลยครับ 🛍️ หรือสนใจตัวไหนพิเศษ พิมพ์บอกได้เลยครับ',
+            },
+          },
+          enabled: true,
+          priority: 20,
+        },
+      ])
       .onConflictDoNothing();
     console.log(
       `seed ok · workspaceId=${DEMO_WORKSPACE_ID} · webChannel=${DEMO_CHANNEL_ID} · ` +

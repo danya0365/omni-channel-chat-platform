@@ -254,6 +254,7 @@ describe('Outbox (integration — ต้อง pnpm db:up)', () => {
         conversationId: gen('conv'),
         contactId: base.contactId,
         messageId: gen('msg'),
+        conversationCreated: true,
         occurredAt: new Date(Date.UTC(2026, 0, 1)),
       });
     });

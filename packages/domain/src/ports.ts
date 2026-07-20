@@ -7,6 +7,8 @@ import type { Channel } from './schema/channel';
 import type { Contact, ContactIdentity } from './schema/contact';
 import type { Assignee, Conversation, ConversationStatus } from './schema/conversation';
 import type { DeliveryStatus, Message, MessageContent, MessageDirection } from './schema/message';
+import type { BotRule } from './schema/bot-rule';
+import type { WorkspaceBotConfig } from './schema/workspace-bot-config';
 
 /**
  * ChannelRepository — resolve channel จาก id
@@ -117,6 +119,23 @@ export interface AgentRepository {
   findCredentialByEmail(email: string): Promise<{ agent: Agent; passwordHash: string } | null>;
 }
 
+/**
+ * BotRuleRepository — โหลด bot rules ที่ enabled สำหรับช่องทางหนึ่ง (Phase 5 automation)
+ * คืนรวม rule ที่ผูก channel นั้น + rule ที่ channelId=null (global ทั้ง workspace) · scope workspace เสมอ
+ * (bot engine เอาไปป้อน `applyBotRules` — ordering/enabled filter ทำซ้ำใน service ให้ปลอดภัย)
+ */
+export interface BotRuleRepository {
+  listEnabled(workspaceId: WorkspaceId, channelId: ChannelId): Promise<BotRule[]>;
+}
+
+/**
+ * WorkspaceBotConfigRepository — สวิตช์ automation ต่อ workspace (Phase 5)
+ * bot consumer เรียก `get` ก่อนทำงาน → ไม่มี config (null) = bot ปิด (คง behavior เดิม · ดู ADR-0006)
+ */
+export interface WorkspaceBotConfigRepository {
+  get(workspaceId: WorkspaceId): Promise<WorkspaceBotConfig | null>;
+}
+
 /** ---- Inbox read-model (Phase 3: agent inbox — query ล้วน ไม่มี business logic) ---- */
 
 /** สรุป conversation หนึ่งแถวใน inbox list (conversation + ชื่อ contact + ข้อความล่าสุด) */
@@ -202,6 +221,8 @@ export const domainEventSchema = z.discriminatedUnion('type', [
     conversationId: idSchema('conv'),
     contactId: idSchema('ctc'),
     messageId: idSchema('msg'),
+    // สายนี้เพิ่งถูกเปิดในรอบนี้ไหม — bot consumer ใช้แยก "สายใหม่ (auto-own)" ออกจาก "สาย escalate ค้าง" (Phase 5)
+    conversationCreated: z.boolean(),
     occurredAt: z.date(),
   }),
   // agent/bot ตอบกลับ → agent inbox คนอื่นใน workspace เห็น sync (consumer re-fetch message ตาม id)

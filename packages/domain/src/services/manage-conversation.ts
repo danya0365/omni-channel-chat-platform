@@ -35,6 +35,10 @@ export interface ManageConversation {
   unassign(input: ConversationRef): Promise<Result<Conversation, ManageConversationError>>;
   close(input: ConversationRef): Promise<Result<Conversation, ManageConversationError>>;
   reopen(input: ConversationRef): Promise<Result<Conversation, ManageConversationError>>;
+  /** ให้ bot รับผิดชอบสาย (สายใหม่ที่ bot ดูแลก่อน — Phase 5) → assignee = {kind:'bot'} */
+  assignBot(input: ConversationRef): Promise<Result<Conversation, ManageConversationError>>;
+  /** bot ยอมแพ้ → คืนสายเข้า unassigned queue ให้ human (Phase 5) → assignee = null */
+  escalate(input: ConversationRef): Promise<Result<Conversation, ManageConversationError>>;
 }
 
 /**
@@ -114,6 +118,16 @@ export function createManageConversation(deps: ManageConversationDeps): ManageCo
       const parsed = conversationRefSchema.safeParse(input);
       if (!parsed.success) return err({ code: 'invalid_command', message: parsed.error.message });
       return setStatus(parsed.data.workspaceId, parsed.data.conversationId, 'open');
+    },
+    assignBot: async (input) => {
+      const parsed = conversationRefSchema.safeParse(input);
+      if (!parsed.success) return err({ code: 'invalid_command', message: parsed.error.message });
+      return setAssignee(parsed.data.workspaceId, parsed.data.conversationId, { kind: 'bot' });
+    },
+    escalate: async (input) => {
+      const parsed = conversationRefSchema.safeParse(input);
+      if (!parsed.success) return err({ code: 'invalid_command', message: parsed.error.message });
+      return setAssignee(parsed.data.workspaceId, parsed.data.conversationId, null);
     },
   };
 }

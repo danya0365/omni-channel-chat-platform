@@ -1,4 +1,5 @@
 export * from './agent-repository';
+export * from './bot-rule-repository';
 export * from './channel-credential-repository';
 export * from './channel-repository';
 export * from './contact-repository';
@@ -7,3 +8,4 @@ export * from './inbox-read-repository';
 export * from './message-repository';
 export * from './outbox';
 export * from './web-route-resolver';
+export * from './workspace-bot-config-repository';

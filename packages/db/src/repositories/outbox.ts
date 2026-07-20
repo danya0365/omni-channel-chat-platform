@@ -1,8 +1,8 @@
-import { asc, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, or } from 'drizzle-orm';
 import type { EventBus } from '@omni/domain';
-import type { Executor } from '../client';
+import type { Database, Executor } from '../client';
 import { uuidv7 } from '../id';
-import { outbox } from '../schema';
+import { outbox, outboxCursors } from '../schema';
 
 /**
  * OutboxEventBus — EventBus impl ที่เขียน domain event ลงตาราง `outbox`
@@ -64,5 +64,66 @@ export function createOutboxStore(db: Executor): OutboxStore {
       if (ids.length === 0) return;
       await db.update(outbox).set({ processedAt: at }).where(inArray(outbox.id, ids));
     },
+  };
+}
+
+/**
+ * OutboxCursorStore (Phase 5) — multi-subscriber outbox: subscriber ใหม่ (เช่น 'bot') อ่าน event ด้วย cursor
+ * ของตัวเอง **ไม่แตะ `processed_at`** ของ agent WS consumer เดิม (additive · ADR-0006)
+ *
+ * `claimBatch` = tx เดียว (lock cursor row → read rows หลัง cursor → advance cursor) แล้วคืน rows ให้ประมวลผล
+ * **นอก tx** (bot logic = network ห้ามถือ tx) · lock (FOR UPDATE) กันหลาย instance claim ทับ
+ * ⚠️ at-most-once: crash หลัง claim ก่อนประมวลผล = ข้าม batch นั้น (bot reply ไม่ critical — ยอมรับได้ MVP)
+ */
+export interface OutboxCursorStore {
+  claimBatch(subscriber: string, limit: number): Promise<OutboxRow[]>;
+}
+
+export function createOutboxCursorStore(db: Database): OutboxCursorStore {
+  return {
+    claimBatch: async (subscriber, limit) =>
+      db.transaction(async (tx) => {
+        // ensure cursor row มีอยู่ แล้ว lock (กันหลาย instance claim batch เดียวกัน)
+        await tx.insert(outboxCursors).values({ subscriber }).onConflictDoNothing();
+        const locked = await tx
+          .select()
+          .from(outboxCursors)
+          .where(eq(outboxCursors.subscriber, subscriber))
+          .limit(1)
+          .for('update');
+        const cursor = locked[0];
+        // cursor = (createdAt, id) — อ่าน rows ที่ "ใหม่กว่า" cursor (tie-break ด้วย id) · ว่าง = ตั้งแต่ต้น
+        const after =
+          cursor?.lastCreatedAt != null && cursor.lastId != null
+            ? or(
+                gt(outbox.createdAt, cursor.lastCreatedAt),
+                and(eq(outbox.createdAt, cursor.lastCreatedAt), gt(outbox.id, cursor.lastId)),
+              )
+            : undefined;
+        const rows = await tx
+          .select({
+            id: outbox.id,
+            type: outbox.type,
+            payload: outbox.payload,
+            occurredAt: outbox.occurredAt,
+            createdAt: outbox.createdAt,
+          })
+          .from(outbox)
+          .where(after)
+          .orderBy(asc(outbox.createdAt), asc(outbox.id))
+          .limit(limit);
+        const last = rows[rows.length - 1];
+        if (!last) return [];
+        await tx
+          .update(outboxCursors)
+          .set({ lastCreatedAt: last.createdAt, lastId: last.id, updatedAt: new Date() })
+          .where(eq(outboxCursors.subscriber, subscriber));
+        return rows.map((r) => ({
+          id: r.id,
+          type: r.type,
+          payload: r.payload,
+          occurredAt: r.occurredAt,
+        }));
+      }),
   };
 }

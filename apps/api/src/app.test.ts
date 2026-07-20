@@ -152,6 +152,14 @@ const manageConversation: ManageConversation = {
     workspaceId === 'ws_1' && conversationId !== 'conv_missing'
       ? ok({ ...cannedConversation, id: conversationId, status: 'open' })
       : err({ code: 'conversation_not_found', message: 'x' }),
+  assignBot: async ({ workspaceId, conversationId }) =>
+    workspaceId === 'ws_1' && conversationId !== 'conv_missing'
+      ? ok({ ...cannedConversation, id: conversationId, assignee: { kind: 'bot' } })
+      : err({ code: 'conversation_not_found', message: 'x' }),
+  escalate: async ({ workspaceId, conversationId }) =>
+    workspaceId === 'ws_1' && conversationId !== 'conv_missing'
+      ? ok({ ...cannedConversation, id: conversationId, assignee: null })
+      : err({ code: 'conversation_not_found', message: 'x' }),
 };
 
 function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
