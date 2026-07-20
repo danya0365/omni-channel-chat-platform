@@ -31,7 +31,7 @@
 
 ## Working Log
 
-- [Phase 4 Progress](log/phase-4-progress.md) — **active** — Phase 4 เสร็จทั้ง routing + LINE channel · verify ครบ (gate+integration+e2e) · commit+push แล้ว · ถัดไป = เปิด PR → Phase 5
+- [Phase 4 Progress](log/phase-4-progress.md) — **active** — Phase 4 (routing + LINE) + hardening (dedup/tx-split/retry) + tech debt B (failed-status realtime, LINE profile name, auth httpOnly cookie [[adr-0005-auth-transport-httponly-cookie]]) เสร็จ · verify ครบ (gate+integration 34+e2e browser) · push แล้ว · ถัดไป = เปิด PR → Phase 5
 - [Phase 3 Progress](log/phase-3-progress.md) — Phase 3 จบแล้ว (agent inbox realtime + auth) — archive ได้
 - [Phase 2 Progress](log/phase-2-progress.md) — Phase 2 จบแล้ว (web channel e2e) — archive ได้
 
