@@ -27,7 +27,7 @@ metadata:
 
 ## Git
 
-- ห้าม commit ตรง `main` → แตก `feature/*` เสมอ
+- **integration branch = `main`** — ห้าม commit ตรง `main` → แตก `feature/*` เสมอ · **PR base = `main`** · ซอย 1 phase เป็นหลาย sub-phase PR ได้ (Phase 4 เข้า main เป็น PR #2–#6)
 - commit **เมื่อพี่สั่งเท่านั้น** (กฎเหล็ก AGENTS.md)
 - commit message: **conventional** (`feat:`/`fix:`/`chore:`/`docs:`/`refactor:`/`test:`) เนื้อความไทยได้
 
