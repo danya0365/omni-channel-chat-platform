@@ -169,8 +169,11 @@ function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     conversations: conversationsRepo,
     manageConversation,
     auth,
+    session: { cookieName: 'session', secure: false, maxAgeSec: 3600, allowedOrigins: [] },
     newSessionId: () => 'web_test_session',
     lineCredentials: async () => null,
+    lineProfile: async () => null,
+    updateContactName: async () => {},
     ...overrides,
   };
 }

@@ -42,6 +42,13 @@ export interface ContactRepository {
     contact: Contact,
     identity: ContactIdentity,
   ): Promise<void>;
+
+  /** อัปเดตชื่อ contact (เช่น backfill จาก LINE profile API หลังสร้าง) — scope workspace */
+  updateDisplayName(
+    workspaceId: WorkspaceId,
+    contactId: ContactId,
+    displayName: string,
+  ): Promise<void>;
 }
 
 export interface ConversationRepository {
@@ -200,6 +207,16 @@ export const domainEventSchema = z.discriminatedUnion('type', [
   // agent/bot ตอบกลับ → agent inbox คนอื่นใน workspace เห็น sync (consumer re-fetch message ตาม id)
   z.object({
     type: z.literal('outbound_message.sent'),
+    workspaceId: idSchema('ws'),
+    channelId: idSchema('chn'),
+    conversationId: idSchema('conv'),
+    messageId: idSchema('msg'),
+    occurredAt: z.date(),
+  }),
+  // outbound ส่งไม่ถึงช่องทาง (deliver ล้มหลัง retry) → agent เห็นสถานะ message เป็น 'failed' realtime
+  // (consumer re-fetch message ตาม id เหมือน outbound_message.sent — status ตอนนี้ = failed แล้ว)
+  z.object({
+    type: z.literal('outbound_message.failed'),
     workspaceId: idSchema('ws'),
     channelId: idSchema('chn'),
     conversationId: idSchema('conv'),

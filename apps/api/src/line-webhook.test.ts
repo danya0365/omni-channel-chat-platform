@@ -107,8 +107,11 @@ function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     conversations: noopConversations,
     manageConversation: noopManage,
     auth: noopAuth,
+    session: { cookieName: 'session', secure: false, maxAgeSec: 3600, allowedOrigins: [] },
     newSessionId: () => 'sess',
     lineCredentials,
+    lineProfile: async () => null,
+    updateContactName: async () => {},
     ...overrides,
   };
 }

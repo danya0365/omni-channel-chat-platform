@@ -38,6 +38,10 @@ function setup() {
       store.contacts.push(contact);
       store.identities.push(identity);
     },
+    updateDisplayName: async (_workspaceId, contactId, displayName) => {
+      const c = store.contacts.find((x) => x.id === contactId);
+      if (c) c.displayName = displayName;
+    },
   };
 
   const conversations: ConversationRepository = {

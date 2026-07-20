@@ -26,10 +26,12 @@ import type { DbHandle } from '@omni/db';
 import { createWebOutboundGateway } from '@omni/channel-web';
 import {
   createLineCredentialResolver,
+  createLineHttpProfileClient,
   createLineHttpPushClient,
   createLineOutboundGateway,
+  createLineProfileResolver,
 } from '@omni/channel-line';
-import type { LineCredentialResolver } from '@omni/channel-line';
+import type { LineCredentialResolver, LineFetch, LineProfileResolver } from '@omni/channel-line';
 import type { AppDeps } from './deps';
 import { createAuthService } from './auth/service';
 import { createDispatchOutboundGateway } from './outbound-dispatch';
@@ -55,6 +57,12 @@ export interface ContainerConfig {
   channelEncryptionKey?: string;
   /** อายุ token (วินาที) — default 12 ชม. */
   tokenTtlSec?: number;
+  /** ส่ง session cookie เฉพาะ HTTPS — prod=true (default) · dev/test อาจตั้ง false */
+  cookieSecure?: boolean;
+  /** origins ที่ยอมให้ยิง state-changing request (CSRF Origin check) — prod ตั้งเป็น origin ของ inbox */
+  allowedOrigins?: string[];
+  /** inject LINE fetch (push API) — test override เพื่อไม่ยิง api.line.me จริง · default = global fetch */
+  lineFetch?: LineFetch;
 }
 
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
@@ -75,7 +83,12 @@ function buildChannelIo(
   registry: ConnectionRegistry,
   channels: ChannelRepository,
   channelEncryptionKey: string | undefined,
-): { outbound: OutboundGateway; lineCredentials: LineCredentialResolver } {
+  lineFetch: LineFetch | undefined,
+): {
+  outbound: OutboundGateway;
+  lineCredentials: LineCredentialResolver;
+  lineProfile: LineProfileResolver;
+} {
   const routeResolver = createWebRouteResolver(handle.db);
 
   const encryptionKey = loadEncryptionKey(channelEncryptionKey ?? DEV_CHANNEL_ENCRYPTION_KEY);
@@ -83,12 +96,17 @@ function buildChannelIo(
   const lineCredentials = createLineCredentialResolver((workspaceId, channelId) =>
     channelCredentials.get(workspaceId, channelId),
   );
+  // resolve ชื่อ contact จาก LINE profile API (fetch เฉพาะตอน contact ใหม่ ที่ route) — reuse lineFetch seam
+  const lineProfile = createLineProfileResolver({
+    resolveCredentials: lineCredentials,
+    client: createLineHttpProfileClient(lineFetch),
+  });
 
   const webOutbound = createWebOutboundGateway({ registry, resolveRoute: routeResolver });
   const lineOutbound = createLineOutboundGateway({
     resolveRoute: routeResolver,
     resolveCredentials: lineCredentials,
-    push: createLineHttpPushClient(),
+    push: createLineHttpPushClient(lineFetch),
   });
   const dispatch = createDispatchOutboundGateway({
     resolveChannelType: async (message) => {
@@ -100,7 +118,7 @@ function buildChannelIo(
   // retry เฉพาะ deliver ที่ล้มชั่วคราว (LINE 5xx/timeout) — ยิงตอน deliver นอก tx · idempotent ผ่าน retry-key
   const outbound = createRetryingOutboundGateway(dispatch, { attempts: 3, backoffMs: [200, 600] });
 
-  return { outbound, lineCredentials };
+  return { outbound, lineCredentials, lineProfile };
 }
 
 /**
@@ -127,10 +145,38 @@ function buildSendOutbound(
     triggerDrain();
     if (!persisted.ok) return persisted;
 
-    return createDeliverOutboundMessage({
+    // deliver นอก tx (network) — ล้ม → deliver service mark 'failed' + publish outbound_message.failed
+    // (event เขียน outbox บน pool = single insert atomic) แล้ว drain ให้ agent เห็นสถานะ realtime
+    const delivered = await createDeliverOutboundMessage({
       outbound,
       messages: createMessageRepository(handle.db),
+      events: createOutboxEventBus(handle.db),
+      now: systemClock,
     })(persisted.value.message);
+    if (!delivered.ok) triggerDrain();
+    return delivered;
+  };
+}
+
+/**
+ * ประกอบ updateContactName — backfill ชื่อ contact + broadcast conversation.updated (inbox refresh ชื่อ realtime)
+ * ใช้ tx เดียว (update + publish atomic) แล้ว triggerDrain · แยก helper กัน God function ใน createContainer
+ */
+function buildUpdateContactName(
+  handle: DbHandle,
+  triggerDrain: () => void,
+): AppDeps['updateContactName'] {
+  return async (workspaceId, contactId, conversationId, displayName) => {
+    await handle.db.transaction(async (tx) => {
+      await createContactRepository(tx).updateDisplayName(workspaceId, contactId, displayName);
+      await createOutboxEventBus(tx).publish({
+        type: 'conversation.updated',
+        workspaceId,
+        conversationId,
+        occurredAt: systemClock(),
+      });
+    });
+    triggerDrain();
   };
 }
 
@@ -154,11 +200,12 @@ export function createContainer(config: ContainerConfig): Container {
   const inboxRead = createInboxReadRepository(handle.db);
 
   // channel IO (credential resolver + outbound gateway ต่อช่องทาง + dispatcher) — ประกอบแยกกัน God function
-  const { outbound, lineCredentials } = buildChannelIo(
+  const { outbound, lineCredentials, lineProfile } = buildChannelIo(
     handle,
     registry,
     channels,
     config.channelEncryptionKey,
+    config.lineFetch,
   );
 
   // Outbox consumer — fan-out event เข้า agent WS (drain ใน tx: fetch SKIP LOCKED → send → mark)
@@ -232,11 +279,20 @@ export function createContainer(config: ContainerConfig): Container {
     },
   };
 
+  const updateContactName = buildUpdateContactName(handle, triggerDrain);
+
   const auth = createAuthService({
     agents,
     secret: config.authSecret,
     tokenTtlSec: config.tokenTtlSec ?? DEFAULT_TOKEN_TTL_SEC,
   });
+
+  const session: AppDeps['session'] = {
+    cookieName: 'session',
+    secure: config.cookieSecure ?? true,
+    maxAgeSec: config.tokenTtlSec ?? DEFAULT_TOKEN_TTL_SEC,
+    allowedOrigins: config.allowedOrigins ?? [],
+  };
 
   const relay = createOutboxRelay(config.databaseUrl, drain);
 
@@ -250,8 +306,11 @@ export function createContainer(config: ContainerConfig): Container {
     conversations,
     manageConversation,
     auth,
+    session,
     newSessionId: () => `web_${randomUUID()}`,
     lineCredentials,
+    lineProfile,
+    updateContactName,
   };
 
   return {

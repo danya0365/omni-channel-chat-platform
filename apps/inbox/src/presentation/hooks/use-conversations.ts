@@ -33,18 +33,18 @@ export interface UseConversations {
  * state ของ conversation list + reducer (bump/upsert/patch) + refresh + manage actions
  * component เรียก assign/close ผ่าน hook นี้ (ไม่ import data เอง) · setState เกิดจาก event/callback เท่านั้น
  */
-export function useConversations(token: string, onAuthError: () => void): UseConversations {
+export function useConversations(onAuthError: () => void): UseConversations {
   const [conversations, setConversations] = useState<WireConversation[]>([]);
   const [acting, setActing] = useState(false);
   const listRef = useLatestRef(conversations);
 
   const refresh = useCallback(async () => {
     try {
-      setConversations(await listConversations(token));
+      setConversations(await listConversations());
     } catch (e) {
       if (e instanceof UnauthorizedError) onAuthError();
     }
-  }, [token, onAuthError]);
+  }, [onAuthError]);
 
   const applyMessage = useCallback(
     (conversationId: string, message: WireMessage) => {
@@ -63,10 +63,10 @@ export function useConversations(token: string, onAuthError: () => void): UseCon
 
   // manage action → เรียก api + merge patch · WS จะ sync ซ้ำ (idempotent) · error/token หมดอายุ → refresh/logout
   const runManage = useCallback(
-    async (id: string, action: (t: string, id: string) => Promise<ConversationPatch>) => {
+    async (id: string, action: (id: string) => Promise<ConversationPatch>) => {
       setActing(true);
       try {
-        const patch = await action(token, id);
+        const patch = await action(id);
         setConversations((prev) => patchConversation(prev, patch));
       } catch (e) {
         if (e instanceof UnauthorizedError) onAuthError();
@@ -75,7 +75,7 @@ export function useConversations(token: string, onAuthError: () => void): UseCon
         setActing(false);
       }
     },
-    [token, onAuthError, refresh],
+    [onAuthError, refresh],
   );
 
   const assign = useCallback((id: string) => runManage(id, assignConversation), [runManage]);

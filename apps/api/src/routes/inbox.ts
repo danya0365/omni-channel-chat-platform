@@ -10,7 +10,7 @@ import type {
 } from '@omni/domain';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { AppDeps } from '../deps';
-import { authFromHeader, authFromToken } from '../auth/require-agent';
+import { authFromRequest, authFromToken, isOriginAllowed } from '../auth/require-agent';
 import { toWireConversation, toWireMessage } from './inbox-wire';
 
 /** query paginate: limit (1-100, default 30) + before (cursor เป็น ISO date) */
@@ -29,12 +29,12 @@ const replyBodySchema = z.object({ text: z.string().min(1) });
  * ⚠️ workspaceId มาจาก token เท่านั้น (ไม่รับจาก client) — กัน cross-tenant
  */
 export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
-  const { auth, inboxRead, conversations, sendOutbound, agentRegistry } = deps;
+  const { auth, session, inboxRead, conversations, sendOutbound, agentRegistry } = deps;
 
   app.get<{ Querystring: { limit?: string; before?: string } }>(
     '/inbox/conversations',
     async (req, reply) => {
-      const ctx = authFromHeader(req, auth);
+      const ctx = authFromRequest(req, auth, session.cookieName);
       if (!ctx) return reply.code(401).send({ error: 'unauthorized' });
       const q = listQuerySchema.safeParse(req.query);
       if (!q.success) return reply.code(400).send({ error: 'invalid_query' });
@@ -50,7 +50,7 @@ export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
   app.get<{ Params: { conversationId: string }; Querystring: { limit?: string; before?: string } }>(
     '/inbox/conversations/:conversationId/messages',
     async (req, reply) => {
-      const ctx = authFromHeader(req, auth);
+      const ctx = authFromRequest(req, auth, session.cookieName);
       if (!ctx) return reply.code(401).send({ error: 'unauthorized' });
       const convId = idSchema('conv').safeParse(req.params.conversationId);
       if (!convId.success) return reply.code(400).send({ error: 'invalid_conversation_id' });
@@ -68,8 +68,12 @@ export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
   app.post<{ Params: { conversationId: string } }>(
     '/inbox/conversations/:conversationId/reply',
     async (req, reply) => {
-      const ctx = authFromHeader(req, auth);
+      const ctx = authFromRequest(req, auth, session.cookieName);
       if (!ctx) return reply.code(401).send({ error: 'unauthorized' });
+      // CSRF: cookie auto-send + POST → เช็ค Origin (defense-in-depth ร่วมกับ SameSite=Strict)
+      if (!isOriginAllowed(req, session.allowedOrigins)) {
+        return reply.code(403).send({ error: 'forbidden_origin' });
+      }
       const convId = idSchema('conv').safeParse(req.params.conversationId);
       if (!convId.success) return reply.code(400).send({ error: 'invalid_conversation_id' });
       const body = replyBodySchema.safeParse(req.body);
@@ -106,7 +110,9 @@ export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
   registerManageRoutes(app, deps);
 
   app.get<{ Querystring: { token?: string } }>('/inbox/ws', { websocket: true }, (socket, req) => {
-    const ctx = authFromToken(req.query.token, auth);
+    // cookie มากับ WS handshake (same-site) → auth ผ่าน cookie · ?token= = fallback ระหว่าง migrate
+    const ctx =
+      authFromRequest(req, auth, session.cookieName) ?? authFromToken(req.query.token, auth);
     if (!ctx) {
       socket.close(1008, 'unauthorized');
       return;
@@ -122,7 +128,7 @@ export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
  * auth → validate → เรียก service → คืน patch (id/status/assignee) ให้ UI merge · event realtime sync agent อื่น
  */
 function registerManageRoutes(app: FastifyInstance, deps: AppDeps): void {
-  const { auth, manageConversation } = deps;
+  const { auth, session, manageConversation } = deps;
 
   const handleManage = async (
     req: FastifyRequest<{ Params: { conversationId: string } }>,
@@ -133,8 +139,11 @@ function registerManageRoutes(app: FastifyInstance, deps: AppDeps): void {
       agentId: AgentId,
     ) => Promise<Result<Conversation, ManageConversationError>>,
   ): Promise<FastifyReply> => {
-    const ctx = authFromHeader(req, auth);
+    const ctx = authFromRequest(req, auth, session.cookieName);
     if (!ctx) return reply.code(401).send({ error: 'unauthorized' });
+    if (!isOriginAllowed(req, session.allowedOrigins)) {
+      return reply.code(403).send({ error: 'forbidden_origin' });
+    }
     const convId = idSchema('conv').safeParse(req.params.conversationId);
     if (!convId.success) return reply.code(400).send({ error: 'invalid_conversation_id' });
 

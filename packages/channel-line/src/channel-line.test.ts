@@ -9,6 +9,8 @@ import type { LinePushClient, LineRouteResolver } from './outbound-gateway';
 import { createLineHttpPushClient } from './push-client';
 import type { LineFetch, LineHttpResponse } from './push-client';
 import { lineRetryKey } from './retry-key';
+import { createLineHttpProfileClient, createLineProfileResolver } from './profile-client';
+import type { LineProfileClient } from './profile-client';
 
 const CHANNEL_SECRET = 'test-channel-secret-สมมติ';
 
@@ -331,6 +333,81 @@ describe('createLineHttpPushClient', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe(0);
+  });
+});
+
+describe('createLineHttpProfileClient', () => {
+  it('2xx + มี displayName → ok + ชื่อ · ยิง GET /profile/{userId} + Bearer', async () => {
+    const calls: Array<{ url: string; init: Parameters<LineFetch>[1] }> = [];
+    const fakeFetch: LineFetch = async (url, init) => {
+      calls.push({ url, init });
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        json: async () => ({ displayName: 'คุณลูกค้า', userId: 'U1' }),
+      };
+    };
+    const client = createLineHttpProfileClient(fakeFetch);
+
+    const result = await client('TOKEN', 'U1');
+
+    expect(result).toEqual({ ok: true, displayName: 'คุณลูกค้า' });
+    expect(calls[0]?.url).toBe('https://api.line.me/v2/bot/profile/U1');
+    expect(calls[0]?.init.method).toBe('GET');
+    expect(calls[0]?.init.headers.authorization).toBe('Bearer TOKEN');
+  });
+
+  it('2xx แต่ไม่มี displayName → ok:false', async () => {
+    const fakeFetch: LineFetch = async () => ({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: async () => ({ userId: 'U1' }),
+    });
+    expect(await createLineHttpProfileClient(fakeFetch)('t', 'U1')).toEqual({ ok: false });
+  });
+
+  it('non-2xx → ok:false', async () => {
+    const fakeFetch: LineFetch = async () => ({
+      ok: false,
+      status: 404,
+      headers: { get: () => null },
+    });
+    expect(await createLineHttpProfileClient(fakeFetch)('t', 'U1')).toEqual({ ok: false });
+  });
+
+  it('network error (throw) → ok:false (ไม่ throw ต่อ — ชื่อ best-effort)', async () => {
+    const fakeFetch: LineFetch = async () => {
+      throw new Error('ECONNRESET');
+    };
+    expect(await createLineHttpProfileClient(fakeFetch)('t', 'U1')).toEqual({ ok: false });
+  });
+});
+
+describe('createLineProfileResolver', () => {
+  it('มี credential + client ได้ชื่อ → คืนชื่อ', async () => {
+    const client: LineProfileClient = async () => ({ ok: true, displayName: 'ชื่อจริง' });
+    const resolver = createLineProfileResolver({
+      resolveCredentials: async () => creds,
+      client,
+    });
+    expect(await resolver('ws_1', 'chn_line', 'U1')).toBe('ชื่อจริง');
+  });
+
+  it('ไม่มี credential → null (ไม่เรียก client)', async () => {
+    const client: LineProfileClient = vi.fn(async () => ({ ok: true as const, displayName: 'x' }));
+    const resolver = createLineProfileResolver({ resolveCredentials: async () => null, client });
+    expect(await resolver('ws_1', 'chn_line', 'U1')).toBeNull();
+    expect(client).not.toHaveBeenCalled();
+  });
+
+  it('client ล้ม → null', async () => {
+    const resolver = createLineProfileResolver({
+      resolveCredentials: async () => creds,
+      client: async () => ({ ok: false }),
+    });
+    expect(await resolver('ws_1', 'chn_line', 'U1')).toBeNull();
   });
 });
 

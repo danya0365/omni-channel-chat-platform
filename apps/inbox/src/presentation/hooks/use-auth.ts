@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { login as loginApi } from '../../data/inbox-api';
+import { login as loginApi, logout as logoutApi } from '../../data/inbox-api';
 import type { Session } from '../../domain/types';
 
 /** auth ฝั่ง client — ห่อ data/inbox-api ให้ component เรียกผ่าน hook (component ไม่ import data ตรง) */
@@ -11,5 +11,13 @@ export function useAuth() {
     (email: string, password: string): Promise<Session | null> => loginApi(email.trim(), password),
     [],
   );
-  return { signIn };
+  /** clear session cookie ฝั่ง server (best-effort — ไม่ throw ต่อ) */
+  const signOut = useCallback(async (): Promise<void> => {
+    try {
+      await logoutApi();
+    } catch {
+      /* offline ก็ยัง logout ฝั่ง client ได้ */
+    }
+  }, []);
+  return { signIn, signOut };
 }

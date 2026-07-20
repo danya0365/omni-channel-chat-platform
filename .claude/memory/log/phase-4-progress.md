@@ -1,12 +1,12 @@
 ---
 name: phase-4-progress
-description: 'สถานะ Phase 4 (routing + LINE channel) — เสร็จทั้ง sub-phase A+B, verify ครบ (gate+integration+e2e browser), commit+push แล้ว. ถัดไป = เปิด PR แล้วขึ้น Phase 5 (bot/automation+AI). อ่านตอนสรุป Phase 4 หรือเริ่ม Phase 5'
+description: 'สถานะ Phase 4 (routing + LINE) — sub-phase A+B เสร็จ + hardening pass (dedup/tx-split/retry) + เก็บ tech debt B (failed-status realtime, LINE profile name, auth httpOnly cookie ADR-0005) ครบ verify. ถัดไป = เปิด PR → Phase 5. อ่านตอนสรุป Phase 4 / เริ่ม Phase 5 / แตะ auth-cookie'
 metadata:
   node_type: memory
   type: log
   status: active
   scope: global
-  updated: 2026-07-19
+  updated: 2026-07-20
   originSessionId: c95243e8-0ef0-4fc2-b3aa-cfd6f5dd01c6
 ---
 
@@ -23,6 +23,26 @@ metadata:
 - ⭐ **ถัดไป**: เปิด PR (base `feature/phase-1-stack-skeleton`) · แล้วขยับ **Phase 5** (bot/automation keyword→canned→escalate + AI reply Claude API, ADR แยก, ปม PII)
 - gate เขียว **165 unit** + integration **28** · inbox build ผ่าน · **Playwright e2e 2 ผ่าน** (browser จริง)
 - ✅ เคลียร์แล้ว: verify browser inbox (Playwright e2e) · `/new-channel line` ([[line]] spec) · seed LINE demo channel (`chn_line_demo`)
+
+## 🔧 Hardening pass + เก็บ tech debt B (2026-07-20) — เสร็จ + verify ครบ
+
+> ทำหลัง Phase 4 core · commit+push บน `feature/phase-4-routing-line` แล้ว · gate เขียว + integration **34** + Playwright e2e **2/2** (browser จริง)
+
+**Hardening (3 commit):**
+
+- **(a) LINE dedup** `f04d9d4` — partial unique index `ux_messages_external (workspace_id, external_id) WHERE external_id IS NOT NULL` + `onConflictDoNothing` → webhook redelivery ไม่สร้าง message/event ซ้ำ · `MessageRepository.insert` คืน `{inserted}` · ingest early-return + `deduped` flag · migration **0003**
+- **(d) tx-split** `fb4bbfa` — แยก domain service เป็น `createPersistOutboundMessage` (ใน tx) + `createDeliverOutboundMessage` (นอก tx) → **เลิกถือ Postgres tx ค้างข้ามการยิง LINE push** · `MessageRepository.updateStatus` · wiring `buildSendOutbound` · export type `SendOutboundMessage`
+- **(c) retry idempotent** `9d3e9f5` — `createRetryingOutboundGateway` (3 attempts, backoff [200,600]ms, inject sleep) ครอบ dispatch · `X-Line-Retry-Key` = `lineRetryKey(message.id)` (UUID จาก hash) → LINE dedupe 24ชม. กัน double-send
+
+**เก็บ tech debt B (4 commit):**
+
+- **(6) failed-status realtime** `a5eab10` — event ใหม่ `outbound_message.failed` (deliver service publish ตอนล้ม) → consumer re-fetch → agent WS · inbox `append` เป็น **upsert-by-id** · `MessageBubble` แสดง "⚠️ ส่งไม่สำเร็จ" (`text-error`)
+- **(b) LINE contact name** `c9c2064` — `createLineHttpProfileClient` (GET `/v2/bot/profile/{userId}`) + resolver · route เรียก **เฉพาะตอน contact ใหม่** → `updateContactName` (update + publish `conversation.updated` → inbox refresh ชื่อ realtime) · `ContactRepository.updateDisplayName`
+- **(e) auth httpOnly cookie** `57aa6ac` (e1 backend) + `1b3c3a3` (e2 frontend) — ดู [[adr-0005-auth-transport-httponly-cookie]] · `@fastify/cookie` · SameSite=Strict + CSRF Origin check · frontend ตัด token ออกจาก localStorage (`credentials:'include'`)
+
+**🧪 capability ใหม่ (durable):** `ContainerConfig.lineFetch` = seam inject LINE fetch (push+profile) → integration test ทำ deliver ล้ม / profile ตอบ แบบ hermetic ไม่ยิง api.line.me จริง (ดู `*-realtime.integration.test.ts`, `line-profile-name.integration.test.ts`, `auth-cookie.integration.test.ts`)
+
+**ยังเปิดค้าง (deferred ถัดไป):** ปิด Bearer/body-token fallback ของ auth (ตอนนี้เปิดไว้ migrate) · `/auth/me` bootstrap (กัน flash ตอน cookie หมดอายุ) · credential rotation/KMS · LINE rich message · queue = pg-boss จริง
 
 > **หมายเหตุ (2026-07-19): refactor inbox UI ทั้งชุด** — พี่ติงว่าโค้ด Next เละ (God component `Inbox.tsx` 419 บรรทัด +
 > react-hooks error ค้างที่ gate มองไม่เห็น). แตกเป็น `app/{lib,hooks,components/{ui,auth,inbox}}` (kebab-case) +
