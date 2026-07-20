@@ -5,3 +5,5 @@ export * from './contact';
 export * from './conversation';
 export * from './message';
 export * from './agent';
+export * from './bot-rule';
+export * from './workspace-bot-config';

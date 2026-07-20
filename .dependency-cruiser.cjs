@@ -11,14 +11,14 @@ module.exports = {
       comment: 'packages/domain ห้าม import workspace อื่น (adapter/app) — เป็น core ล้วน',
       severity: 'error',
       from: { path: '^packages/domain' },
-      to: { path: '^(packages/(db|channel-)|apps/)' },
+      to: { path: '^(packages/(db|channel-|bot-)|apps/)' },
     },
     {
       name: 'adapter-only-domain',
       comment:
-        'adapter (db, channel-*) พึ่งได้แค่ domain + ตัวเอง — ห้ามพึ่ง app หรือ adapter อื่น',
+        'adapter (db, channel-*, bot-*) พึ่งได้แค่ domain + ตัวเอง — ห้ามพึ่ง app หรือ adapter อื่น',
       severity: 'error',
-      from: { path: '^packages/(db|channel-[^/]+)/' },
+      from: { path: '^packages/(db|channel-[^/]+|bot-[^/]+)/' },
       to: { path: '^(apps/|packages/)', pathNot: '^(packages/domain/|packages/$1/)' },
     },
     {

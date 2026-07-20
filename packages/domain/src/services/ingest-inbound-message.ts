@@ -163,6 +163,7 @@ export function createIngestInboundMessage(deps: IngestInboundDeps) {
       conversationId: conversation.id,
       contactId: contact.id,
       messageId: message.id,
+      conversationCreated,
       occurredAt: at,
     });
 

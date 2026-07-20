@@ -1,6 +1,16 @@
 import { sql } from 'drizzle-orm';
-import { index, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
-import type { Assignee, MessageContent, MessageSender } from '@omni/domain';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
+import type { Assignee, BotRuleAction, MessageContent, MessageSender } from '@omni/domain';
 
 /**
  * Drizzle schema = source of truth ของ DB (migration generate จากไฟล์นี้)
@@ -172,7 +182,9 @@ export const outbox = pgTable(
     type: text('type').notNull(),
     payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
     occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    // ⚠️ precision: 3 (ms) — cursor ของ multi-subscriber (outbox_cursors) เทียบ created_at กับค่า
+    // ที่อ่านผ่าน JS Date (ms). ถ้าคอลัมน์เป็น µs (default) ค่าที่ store กลับจะต่ำกว่าจริง → row เดิมโผล่ซ้ำทุกครั้ง
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull().defaultNow(),
     /** null = ยังไม่ประมวลผล · มีค่า = fan-out แล้ว (relay ข้าม) */
     processedAt: timestamp('processed_at', { withTimezone: true }),
   },
@@ -195,6 +207,60 @@ export const channelCredentials = pgTable('channel_credentials', {
     .references(() => workspaces.id, { onDelete: 'cascade' }),
   /** ciphertext (v1.<iv>.<tag>.<ct>) ของ JSON credential — ไม่มี plaintext ใน DB */
   secretCipher: text('secret_cipher').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * BotRule (Phase 5 automation) — กติกา "ถ้าข้อความ contains pattern → action (reply/escalate)" ต่อ workspace
+ * channelId = null → ใช้ทุกช่องทาง · priority น้อยตรวจก่อน · action เป็น jsonb typed ($type<BotRuleAction>)
+ * ⚠️ ไม่ใช่ secret → plaintext (แยกจาก channel_credentials) · domain zod (botRuleSchema) validate ตอน repo อ่าน · ดู ADR-0006
+ */
+export const botRules = pgTable(
+  'bot_rules',
+  {
+    id: text('id').primaryKey(),
+    workspaceId: text('workspace_id')
+      .notNull()
+      .references(() => workspaces.id, { onDelete: 'cascade' }),
+    channelId: text('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
+    /** วิธี match — MVP 'contains' (text ไม่ enum เพื่อเพิ่ม matchType ทีหลังไม่ต้อง ALTER TYPE) */
+    matchType: text('match_type').notNull(),
+    pattern: text('pattern').notNull(),
+    action: jsonb('action').$type<BotRuleAction>().notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    priority: integer('priority').notNull().default(100),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  // lookup: rules ที่ enabled ของ workspace (+ channel/global) เรียง priority
+  (t) => [index('ix_bot_rules_lookup').on(t.workspaceId, t.channelId, t.enabled)],
+);
+
+/**
+ * OutboxCursor (Phase 5) — cursor ต่อ subscriber สำหรับ multi-subscriber outbox (additive · ดู ADR-0006)
+ * agent WS consumer เดิมยังใช้ `outbox.processed_at` · subscriber ใหม่ (เช่น 'bot') track ตำแหน่งเองที่นี่
+ * cursor = (last_created_at, last_id) · claim batch = lock row นี้ (FOR UPDATE) กันหลาย instance ชน
+ */
+export const outboxCursors = pgTable('outbox_cursors', {
+  subscriber: text('subscriber').primaryKey(),
+  // precision: 3 ให้ตรงกับ outbox.created_at (ms) — เทียบ cursor แบบ (created_at, id) ได้ตรง ไม่ off-by-µs
+  lastCreatedAt: timestamp('last_created_at', { withTimezone: true, precision: 3 }),
+  lastId: text('last_id'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * WorkspaceBotConfig (Phase 5) — สวิตช์ automation ต่อ workspace (1:1 กับ workspace, workspaceId เป็น PK)
+ * botEnabled = bot รับสายใหม่ + ตอบตาม rules · aiEnabled = (5B) fallback ถาม Claude
+ * ⚠️ ไม่มี row = bot ปิด (คง behavior เดิม) · default ปิดทั้งคู่ (AI = PII opt-in) · ดู ADR-0006
+ */
+export const workspaceBotConfig = pgTable('workspace_bot_config', {
+  workspaceId: text('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  botEnabled: boolean('bot_enabled').notNull().default(false),
+  aiEnabled: boolean('ai_enabled').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

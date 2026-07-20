@@ -32,12 +32,14 @@ import {
   createLineProfileResolver,
 } from '@omni/channel-line';
 import type { LineCredentialResolver, LineFetch, LineProfileResolver } from '@omni/channel-line';
+import type { AnthropicFetch } from '@omni/bot-anthropic';
 import type { AppDeps } from './deps';
 import { createAuthService } from './auth/service';
 import { createDispatchOutboundGateway } from './outbound-dispatch';
 import { createRetryingOutboundGateway } from './outbound-retry';
 import { createConnectionRegistry } from './registry';
 import type { ConnectionRegistry } from './registry';
+import { buildBotConsumer } from './realtime/bot-wiring';
 import { createOutboxConsumer } from './realtime/outbox-consumer';
 import { createOutboxRelay } from './realtime/pg-boss-relay';
 
@@ -63,6 +65,10 @@ export interface ContainerConfig {
   allowedOrigins?: string[];
   /** inject LINE fetch (push API) — test override เพื่อไม่ยิง api.line.me จริง · default = global fetch */
   lineFetch?: LineFetch;
+  /** ANTHROPIC_API_KEY — ตั้ง = เปิด AI fallback (bot ต้อง aiEnabled ต่อ workspace ด้วย) · ไม่ตั้ง = rule-only */
+  anthropicApiKey?: string;
+  /** inject Anthropic fetch — test override เพื่อไม่ยิง api.anthropic.com จริง · default = global fetch */
+  anthropicFetch?: AnthropicFetch;
 }
 
 const DEFAULT_TOKEN_TTL_SEC = 12 * 60 * 60;
@@ -181,6 +187,39 @@ function buildUpdateContactName(
 }
 
 /**
+ * ประกอบ manageConversation — assign/unassign/close/reopen/assignBot/escalate (Phase 4 routing + Phase 5 bot)
+ * แต่ละ op รันใน tx (conversation repo + outbox eventbus ผูก tx เดียว → atomic) แล้ว `triggerDrain()` หลัง commit
+ * → agent เห็น badge/สถานะ sync realtime · `run` combinator กัน boilerplate ซ้ำ + คุม God function ใน createContainer
+ */
+function buildManageConversation(handle: DbHandle, triggerDrain: () => void): ManageConversation {
+  const txManage = <T>(op: (m: ManageConversation) => Promise<T>): Promise<T> =>
+    handle.db.transaction((tx) =>
+      op(
+        createManageConversation({
+          conversations: createConversationRepository(tx),
+          events: createOutboxEventBus(tx),
+          now: systemClock,
+        }),
+      ),
+    );
+  const run =
+    <C, R>(pick: (m: ManageConversation) => (cmd: C) => Promise<R>) =>
+    async (cmd: C): Promise<R> => {
+      const r = await txManage((m) => pick(m)(cmd));
+      triggerDrain();
+      return r;
+    };
+  return {
+    assign: run((m) => m.assign),
+    unassign: run((m) => m.unassign),
+    close: run((m) => m.close),
+    reopen: run((m) => m.reopen),
+    assignBot: run((m) => m.assignBot),
+    escalate: run((m) => m.escalate),
+  };
+}
+
+/**
  * Composition root จริง — ต่อ DB + repos + services + WS registry + outbound gateway + outbox realtime
  * จุดเดียวที่ adapter (db, channel-web) มาเจอกัน (structural typing bridge resolver ↔ gateway)
  *
@@ -226,7 +265,33 @@ export function createContainer(config: ContainerConfig): Container {
     });
   };
 
-  // ingest inbound — เขียน contact/conversation/message + outbox ใน tx เดียว แล้ว trigger drain
+  // send outbound = persist(tx) → deliver(นอก tx) — แยกเป็น helper กัน God function (buildSendOutbound)
+  const sendOutbound = buildSendOutbound(handle, outbound, generateId, triggerDrain);
+
+  // manage conversation (assign/unassign/close/reopen/assignBot/escalate) — tx + outbox + triggerDrain (แยก helper)
+  const manageConversation = buildManageConversation(handle, triggerDrain);
+
+  // Bot consumer (Phase 5) — cursor 'bot' ของตัวเอง · reuse sendOutbound/manageConversation ที่ประกอบข้างบน
+  const drainBot = buildBotConsumer(
+    handle,
+    conversations,
+    inboxRead,
+    sendOutbound,
+    manageConversation,
+    {
+      apiKey: config.anthropicApiKey,
+      fetch: config.anthropicFetch,
+    },
+  );
+  let inFlightBotDrain: Promise<unknown> = Promise.resolve();
+  const triggerBotDrain = (): void => {
+    // fire-and-forget เหมือน triggerDrain · consumer แยก cursor → trigger คู่กับ agent drain ได้
+    inFlightBotDrain = drainBot().catch((error) => {
+      console.error('bot drain error:', error instanceof Error ? error.message : error);
+    });
+  };
+
+  // ingest inbound — เขียน contact/conversation/message + outbox ใน tx เดียว แล้ว trigger agent + bot drain
   const ingest: AppDeps['ingest'] = async (command) => {
     const result = await handle.db.transaction((tx) =>
       createIngestInboundMessage({
@@ -238,45 +303,9 @@ export function createContainer(config: ContainerConfig): Container {
         now: systemClock,
       })(command),
     );
-    triggerDrain();
+    triggerDrain(); // agent WS realtime (processed_at)
+    triggerBotDrain(); // bot automation (cursor 'bot') — สายใหม่ตอบเอง/escalate
     return result;
-  };
-
-  // send outbound = persist(tx) → deliver(นอก tx) — แยกเป็น helper กัน God function (buildSendOutbound)
-  const sendOutbound = buildSendOutbound(handle, outbound, generateId, triggerDrain);
-
-  // manage conversation (assign/unassign/close/reopen) — รันใน tx + outbox eventbus แล้ว trigger drain
-  const txManage = <T>(op: (m: ManageConversation) => Promise<T>): Promise<T> =>
-    handle.db.transaction((tx) =>
-      op(
-        createManageConversation({
-          conversations: createConversationRepository(tx),
-          events: createOutboxEventBus(tx),
-          now: systemClock,
-        }),
-      ),
-    );
-  const manageConversation: ManageConversation = {
-    assign: async (cmd) => {
-      const r = await txManage((m) => m.assign(cmd));
-      triggerDrain();
-      return r;
-    },
-    unassign: async (cmd) => {
-      const r = await txManage((m) => m.unassign(cmd));
-      triggerDrain();
-      return r;
-    },
-    close: async (cmd) => {
-      const r = await txManage((m) => m.close(cmd));
-      triggerDrain();
-      return r;
-    },
-    reopen: async (cmd) => {
-      const r = await txManage((m) => m.reopen(cmd));
-      triggerDrain();
-      return r;
-    },
   };
 
   const updateContactName = buildUpdateContactName(handle, triggerDrain);
@@ -318,7 +347,8 @@ export function createContainer(config: ContainerConfig): Container {
     start: () => relay.start(),
     close: async () => {
       await relay.stop();
-      await inFlightDrain; // รอ drain ที่ค้างให้จบก่อนปิด pool
+      await inFlightDrain; // รอ agent drain ที่ค้างให้จบก่อนปิด pool
+      await inFlightBotDrain; // รอ bot drain ที่ค้าง (กัน "use pool after end")
       await handle.close();
     },
   };

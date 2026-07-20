@@ -1,0 +1,2 @@
+ALTER TABLE "outbox" ALTER COLUMN "created_at" SET DATA TYPE timestamp (3) with time zone;--> statement-breakpoint
+ALTER TABLE "outbox_cursors" ALTER COLUMN "last_created_at" SET DATA TYPE timestamp (3) with time zone;

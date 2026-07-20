@@ -7,6 +7,8 @@ import type { Channel } from './schema/channel';
 import type { Contact, ContactIdentity } from './schema/contact';
 import type { Assignee, Conversation, ConversationStatus } from './schema/conversation';
 import type { DeliveryStatus, Message, MessageContent, MessageDirection } from './schema/message';
+import type { BotRule } from './schema/bot-rule';
+import type { WorkspaceBotConfig } from './schema/workspace-bot-config';
 
 /**
  * ChannelRepository — resolve channel จาก id
@@ -117,6 +119,47 @@ export interface AgentRepository {
   findCredentialByEmail(email: string): Promise<{ agent: Agent; passwordHash: string } | null>;
 }
 
+/**
+ * BotRuleRepository — โหลด bot rules ที่ enabled สำหรับช่องทางหนึ่ง (Phase 5 automation)
+ * คืนรวม rule ที่ผูก channel นั้น + rule ที่ channelId=null (global ทั้ง workspace) · scope workspace เสมอ
+ * (bot engine เอาไปป้อน `applyBotRules` — ordering/enabled filter ทำซ้ำใน service ให้ปลอดภัย)
+ */
+export interface BotRuleRepository {
+  listEnabled(workspaceId: WorkspaceId, channelId: ChannelId): Promise<BotRule[]>;
+}
+
+/**
+ * WorkspaceBotConfigRepository — สวิตช์ automation ต่อ workspace (Phase 5)
+ * bot consumer เรียก `get` ก่อนทำงาน → ไม่มี config (null) = bot ปิด (คง behavior เดิม · ดู ADR-0006)
+ */
+export interface WorkspaceBotConfigRepository {
+  get(workspaceId: WorkspaceId): Promise<WorkspaceBotConfig | null>;
+}
+
+/** ข้อมูลที่ AI ใช้ตัดสินใจตอบ (Phase 5B · MVP = ข้อความลูกค้าล่าสุดอย่างเดียว → ลด PII ที่ส่งออกนอกระบบ) */
+export interface BotAiReplyInput {
+  /** ข้อความลูกค้าล่าสุด (plaintext) */
+  text: string;
+}
+
+/** ผล AI: ตอบได้ (reply) หรือยอมแพ้/ต้องใช้คน (escalate) */
+export type BotAiDecision = { kind: 'reply'; text: string } | { kind: 'escalate' };
+
+export interface BotAiError {
+  code: 'ai_failed';
+  message: string;
+}
+
+/**
+ * BotAiReplier — ถาม AI ช่วยตอบลูกค้า (Phase 5B · ใช้เมื่อ rule ไม่ match + workspace เปิด aiEnabled)
+ * network boundary → คืน Result · caller (bot consumer) แปลง err/escalate → คืนสายเข้า queue (fail-safe หา human)
+ * ⚠️ PII: ข้อความลูกค้าวิ่งออกนอกระบบไป provider — ต้อง per-workspace opt-in + ห้าม log เต็ม (ดู ADR-0006)
+ * adapter (`@omni/bot-anthropic`) เป็นคน implement — domain รู้แค่ port นี้ (ไม่ผูก provider)
+ */
+export interface BotAiReplier {
+  reply(input: BotAiReplyInput): Promise<Result<BotAiDecision, BotAiError>>;
+}
+
 /** ---- Inbox read-model (Phase 3: agent inbox — query ล้วน ไม่มี business logic) ---- */
 
 /** สรุป conversation หนึ่งแถวใน inbox list (conversation + ชื่อ contact + ข้อความล่าสุด) */
@@ -202,6 +245,8 @@ export const domainEventSchema = z.discriminatedUnion('type', [
     conversationId: idSchema('conv'),
     contactId: idSchema('ctc'),
     messageId: idSchema('msg'),
+    // สายนี้เพิ่งถูกเปิดในรอบนี้ไหม — bot consumer ใช้แยก "สายใหม่ (auto-own)" ออกจาก "สาย escalate ค้าง" (Phase 5)
+    conversationCreated: z.boolean(),
     occurredAt: z.date(),
   }),
   // agent/bot ตอบกลับ → agent inbox คนอื่นใน workspace เห็น sync (consumer re-fetch message ตาม id)
