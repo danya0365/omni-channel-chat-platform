@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import { index, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import type { Assignee, MessageContent, MessageSender } from '@omni/domain';
 
@@ -127,7 +128,14 @@ export const messages = pgTable(
     rawPayload: jsonb('raw_payload').$type<Record<string, unknown>>(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('ix_messages_conversation').on(t.workspaceId, t.conversationId, t.createdAt)],
+  (t) => [
+    index('ix_messages_conversation').on(t.workspaceId, t.conversationId, t.createdAt),
+    // dedup: กัน webhook redelivery (at-least-once) สร้าง message ซ้ำ — external_id = provider message id
+    // partial: outbound + web ที่ external_id = null ถูก exclude (ไม่ dedup ผิดฝั่ง)
+    uniqueIndex('ux_messages_external')
+      .on(t.workspaceId, t.externalId)
+      .where(sql`${t.externalId} is not null`),
+  ],
 );
 
 /**

@@ -176,4 +176,21 @@ describe('LINE inbound e2e (integration — ต้อง pnpm db:up)', () => {
     const conversationIds = new Set(rows.map((r) => r.conversationId));
     expect(conversationIds.size).toBe(1);
   });
+
+  it('webhook redelivery (payload เดิม message id เดิม) ส่งซ้ำ → dedup: message row เดียว', async () => {
+    const { workspaceId, channelId } = await seedLineChannel();
+    // provider ส่ง event เดิมซ้ำ (at-least-once) — body + signature เดิมเป๊ะ
+    const body = webhookBody('ส่งซ้ำได้แต่ต้องไม่ลงซ้ำ', 'Udup', 'lineMsg_dup');
+    const signature = createHmac('sha256', CHANNEL_SECRET).update(body).digest('base64');
+
+    expect((await postWebhook(channelId, body, signature)).status).toBe(200);
+    expect((await postWebhook(channelId, body, signature)).status).toBe(200); // redelivery
+
+    const rows = await seedHandle.db
+      .select()
+      .from(messages)
+      .where(eq(messages.workspaceId, workspaceId));
+    expect(rows).toHaveLength(1); // unique (workspace_id, external_id) กันซ้ำที่ DB จริง
+    expect(rows[0]?.externalId).toBe('lineMsg_dup');
+  });
 });

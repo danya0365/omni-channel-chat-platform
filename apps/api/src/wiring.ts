@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import {
+  createDeliverOutboundMessage,
   createIngestInboundMessage,
   createManageConversation,
-  createSendOutboundMessage,
+  createPersistOutboundMessage,
 } from '@omni/domain';
 import type { ChannelRepository, ManageConversation, OutboundGateway } from '@omni/domain';
 import {
@@ -32,6 +33,7 @@ import type { LineCredentialResolver } from '@omni/channel-line';
 import type { AppDeps } from './deps';
 import { createAuthService } from './auth/service';
 import { createDispatchOutboundGateway } from './outbound-dispatch';
+import { createRetryingOutboundGateway } from './outbound-retry';
 import { createConnectionRegistry } from './registry';
 import type { ConnectionRegistry } from './registry';
 import { createOutboxConsumer } from './realtime/outbox-consumer';
@@ -88,15 +90,48 @@ function buildChannelIo(
     resolveCredentials: lineCredentials,
     push: createLineHttpPushClient(),
   });
-  const outbound = createDispatchOutboundGateway({
+  const dispatch = createDispatchOutboundGateway({
     resolveChannelType: async (message) => {
       const channel = await channels.findPublicById(message.channelId);
       return channel && channel.workspaceId === message.workspaceId ? channel.type : null;
     },
     byType: { web: webOutbound, line: lineOutbound },
   });
+  // retry เฉพาะ deliver ที่ล้มชั่วคราว (LINE 5xx/timeout) — ยิงตอน deliver นอก tx · idempotent ผ่าน retry-key
+  const outbound = createRetryingOutboundGateway(dispatch, { attempts: 3, backoffMs: [200, 600] });
 
   return { outbound, lineCredentials };
+}
+
+/**
+ * ประกอบ sendOutbound = 2 เฟส: persist(ใน DB tx) → deliver(นอก tx) — แยกกัน God function ใน createContainer
+ * - persist + outbox event = atomic ใน tx เดียว → หลัง commit `triggerDrain()` ให้ agent เห็น reply ทันที
+ * - deliver ยิง provider (LINE push) **นอก tx** — repo ผูก pool ไม่ถือ lock/connection ระหว่างรอ network · ล้ม → mark 'failed'
+ */
+function buildSendOutbound(
+  handle: DbHandle,
+  outbound: OutboundGateway,
+  generateId: ReturnType<typeof createIdGenerator>,
+  triggerDrain: () => void,
+): AppDeps['sendOutbound'] {
+  return async (command) => {
+    const persisted = await handle.db.transaction((tx) =>
+      createPersistOutboundMessage({
+        conversations: createConversationRepository(tx),
+        messages: createMessageRepository(tx),
+        events: createOutboxEventBus(tx),
+        generateId,
+        now: systemClock,
+      })(command),
+    );
+    triggerDrain();
+    if (!persisted.ok) return persisted;
+
+    return createDeliverOutboundMessage({
+      outbound,
+      messages: createMessageRepository(handle.db),
+    })(persisted.value.message);
+  };
 }
 
 /**
@@ -160,22 +195,8 @@ export function createContainer(config: ContainerConfig): Container {
     return result;
   };
 
-  // send outbound — persist message + outbox + push ช่องทาง (web) ใน tx เดียว แล้ว trigger drain
-  // ⚠️ MVP: gateway.send (push widget WS local) รันใน tx ด้วย — เมื่อมี provider ช่องทางไกล (Phase 4) ค่อยแยก persist/deliver
-  const sendOutbound: AppDeps['sendOutbound'] = async (command) => {
-    const result = await handle.db.transaction((tx) =>
-      createSendOutboundMessage({
-        conversations: createConversationRepository(tx),
-        messages: createMessageRepository(tx),
-        outbound,
-        events: createOutboxEventBus(tx),
-        generateId,
-        now: systemClock,
-      })(command),
-    );
-    triggerDrain();
-    return result;
-  };
+  // send outbound = persist(tx) → deliver(นอก tx) — แยกเป็น helper กัน God function (buildSendOutbound)
+  const sendOutbound = buildSendOutbound(handle, outbound, generateId, triggerDrain);
 
   // manage conversation (assign/unassign/close/reopen) — รันใน tx + outbox eventbus แล้ว trigger drain
   const txManage = <T>(op: (m: ManageConversation) => Promise<T>): Promise<T> =>

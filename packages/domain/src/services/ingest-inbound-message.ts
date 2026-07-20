@@ -47,6 +47,8 @@ export interface IngestInboundResult {
   contact: Contact;
   /** อะไรถูกสร้างใหม่ในรอบนี้ (contact ใหม่ = คนใหม่, conversation ใหม่ = เปิดสายใหม่) */
   created: { contact: boolean; conversation: boolean };
+  /** true = message นี้เคยรับแล้ว (external_id ซ้ำ = webhook redelivery) → ไม่ persist/ไม่ publish ซ้ำ */
+  deduped: boolean;
 }
 
 export type IngestInboundError = { code: 'invalid_command'; message: string };
@@ -133,7 +135,19 @@ export function createIngestInboundMessage(deps: IngestInboundDeps) {
       externalId: command.externalMessageId ?? null,
       createdAt: at,
     };
-    await messages.insert(workspaceId, message);
+    const { inserted } = await messages.insert(workspaceId, message);
+
+    // 3.5 dedup: external_id ชน (webhook redelivery ซ้ำ) → idempotent: ไม่ touch/ไม่ publish event ซ้ำ
+    //     คืน deduped=true ให้ caller รู้ว่าไม่มีอะไรใหม่ (message.id ที่คืนเป็นตัวที่ไม่ได้ persist — อย่าใช้ต่อ)
+    if (!inserted) {
+      return ok({
+        message,
+        conversation,
+        contact,
+        created: { contact: contactCreated, conversation: conversationCreated },
+        deduped: true,
+      });
+    }
 
     // 4. เด้ง lastMessageAt ถ้าใช้ conversation เดิม (ของใหม่ตั้ง lastMessageAt = at อยู่แล้ว)
     if (!conversationCreated) {
@@ -157,6 +171,7 @@ export function createIngestInboundMessage(deps: IngestInboundDeps) {
       conversation,
       contact,
       created: { contact: contactCreated, conversation: conversationCreated },
+      deduped: false,
     });
   };
 }

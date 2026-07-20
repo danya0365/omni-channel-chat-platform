@@ -12,16 +12,6 @@ import type {
   OutboundGateway,
 } from '../ports';
 
-/** deps ที่ service ต้องใช้ — wire ที่ composition root (apps/api) */
-export interface SendOutboundDeps {
-  conversations: ConversationRepository;
-  messages: MessageRepository;
-  outbound: OutboundGateway;
-  events: EventBus;
-  generateId: IdGenerator;
-  now: Clock;
-}
-
 /**
  * command ส่ง outbound หนึ่งข้อความเข้า conversation (agent/bot ตอบกลับ)
  * Phase 2: เรียกจาก demo reply endpoint · Phase 3 = จาก agent inbox (มี auth + agentId จริง)
@@ -50,18 +40,43 @@ export type SendOutboundError =
   | { code: 'send_failed'; message: string };
 
 /**
- * sendOutboundMessage — ส่งข้อความออกไปยังช่องทาง:
- *   เช็ค conversation มีจริง → ประกอบ outbound message → persist (source of truth) → touch → ส่งออกช่องทาง
- *
- * persist ก่อนส่งเสมอ (message เป็นความจริงแม้ช่องทาง/ปลายทางล่ม) · คืน Result เพราะเป็น external boundary
- * infra error (db ล่ม) = throw ตามปกติ (api map เป็น 5xx)
+ * สัญญาของ "ส่ง outbound หนึ่งข้อความ" แบบ command → Result (ประกอบ persist+deliver ที่ composition root)
+ * แยก type ไว้ให้ apps/api ผูก AppDeps โดยไม่ผูกกับรูปแบบ internal (persist/deliver แยกกัน)
  */
-export function createSendOutboundMessage(deps: SendOutboundDeps) {
-  const { conversations, messages, outbound, events, generateId, now } = deps;
+export type SendOutboundMessage = (
+  input: SendOutboundCommand,
+) => Promise<Result<SendOutboundResult, SendOutboundError>>;
 
-  return async function sendOutboundMessage(
+/* ------------------------------------------------------------------ *
+ * แยก persist (ใน DB tx) ออกจาก deliver (network นอก tx)
+ * เหตุผล: ยิง provider ไกล (LINE push) ต้อง **ไม่ถือ DB transaction ค้าง** ระหว่างรอ network
+ * (ถือ lock + กิน connection pool เมื่อ provider ช้า/ล่ม) — composition root เป็นคนเย็บ 2 เฟส
+ * ------------------------------------------------------------------ */
+
+/** deps ของเฟส persist — ไม่มี outbound gateway (ยังไม่ยิงช่องทาง) */
+export interface PersistOutboundDeps {
+  conversations: ConversationRepository;
+  messages: MessageRepository;
+  events: EventBus;
+  generateId: IdGenerator;
+  now: Clock;
+}
+
+export interface PersistedOutbound {
+  message: Message;
+}
+
+/**
+ * เฟส 1 — persist outbound message (source of truth) + publish event · **รันใน DB tx**
+ *   เช็ค conversation มีจริง → ประกอบ message (status 'sent' optimistic) → persist → touch → publish
+ * ยังไม่ยิงช่องทาง — เฟส deliver แยกทำนอก tx · infra error (db ล่ม) = throw (api map 5xx)
+ */
+export function createPersistOutboundMessage(deps: PersistOutboundDeps) {
+  const { conversations, messages, events, generateId, now } = deps;
+
+  return async function persistOutboundMessage(
     input: SendOutboundCommand,
-  ): Promise<Result<SendOutboundResult, SendOutboundError>> {
+  ): Promise<Result<PersistedOutbound, SendOutboundError>> {
     const parsed = sendOutboundCommandSchema.safeParse(input);
     if (!parsed.success) {
       return err({ code: 'invalid_command', message: parsed.error.message });
@@ -69,7 +84,7 @@ export function createSendOutboundMessage(deps: SendOutboundDeps) {
     const command = parsed.data;
     const { workspaceId, channelId, conversationId } = command;
 
-    // 1. conversation ต้องมีจริง + อยู่ workspace + ช่องทางเดียวกัน (กัน cross-tenant / ผิดช่องทาง)
+    // conversation ต้องมีจริง + อยู่ workspace + ช่องทางเดียวกัน (กัน cross-tenant / ผิดช่องทาง)
     const conversation = await conversations.findById(workspaceId, conversationId);
     if (!conversation || conversation.channelId !== channelId) {
       return err({
@@ -79,8 +94,6 @@ export function createSendOutboundMessage(deps: SendOutboundDeps) {
     }
 
     const at = now();
-
-    // 2. ประกอบ outbound message + persist ก่อนยิงออกช่องทาง
     const message: Message = {
       id: generateId('msg'),
       workspaceId,
@@ -89,6 +102,7 @@ export function createSendOutboundMessage(deps: SendOutboundDeps) {
       direction: 'outbound',
       sender: command.sender,
       content: command.content,
+      // optimistic: persist = ความจริง · เฟส deliver อัปเป็น 'failed' ถ้าช่องทางล้ม
       status: 'sent',
       externalId: null,
       createdAt: at,
@@ -96,8 +110,7 @@ export function createSendOutboundMessage(deps: SendOutboundDeps) {
     await messages.insert(workspaceId, message);
     await conversations.touch(workspaceId, conversationId, at);
 
-    // 3. publish event (→ outbox ใน tx เดียวกับ persist ที่ wiring) — agent inbox คนอื่นเห็น reply sync
-    //    วางก่อนยิงช่องทาง: message persist แล้ว = ความจริง แม้ delivery ปลายทางจะล้มก็ตาม
+    // publish (→ outbox ใน tx เดียวกับ persist) — agent inbox คนอื่นเห็น reply sync ทันทีหลัง commit
     await events.publish({
       type: 'outbound_message.sent',
       workspaceId,
@@ -107,10 +120,30 @@ export function createSendOutboundMessage(deps: SendOutboundDeps) {
       occurredAt: at,
     });
 
-    // 4. ส่งออกช่องทาง (web = push เข้า WS ของ session ที่ต่ออยู่)
+    return ok({ message });
+  };
+}
+
+/** deps ของเฟส deliver — ยิงช่องทาง + อัปสถานะเมื่อผลออก (นอก tx) */
+export interface DeliverOutboundDeps {
+  outbound: OutboundGateway;
+  messages: MessageRepository;
+}
+
+/**
+ * เฟส 2 — deliver message ที่ persist แล้วออกช่องทาง · **รันนอก DB tx** (network boundary)
+ *   ยิง outbound.send → สำเร็จ: คืน delivered/externalId · ล้ม (retry หมดแล้ว): mark 'failed' + คืน send_failed
+ * message ยัง persist เป็นความจริงเสมอ (persist-before-deliver) — ล้มแค่สะท้อนสถานะ ไม่ลบ
+ */
+export function createDeliverOutboundMessage(deps: DeliverOutboundDeps) {
+  const { outbound, messages } = deps;
+
+  return async function deliverOutboundMessage(
+    message: Message,
+  ): Promise<Result<SendOutboundResult, SendOutboundError>> {
     const receipt = await outbound.send(message);
     if (!receipt.ok) {
-      // ช่องทางล้มจริง — message ยัง persist ไว้ (สถานะ sent) · caller ตัดสินใจ retry ระดับบน
+      await messages.updateStatus(message.workspaceId, message.id, 'failed');
       return err({ code: 'send_failed', message: receipt.error.message });
     }
 

@@ -67,8 +67,19 @@ function setup() {
 
   const messages: MessageRepository = {
     insert: async (_workspaceId, message) => {
+      // จำลอง partial unique (workspace_id, external_id): external_id non-null ซ้ำ = redelivery → no-op
+      if (
+        message.externalId !== null &&
+        store.messages.some(
+          (m) => m.workspaceId === message.workspaceId && m.externalId === message.externalId,
+        )
+      ) {
+        return { inserted: false };
+      }
       store.messages.push(message);
+      return { inserted: true };
     },
+    updateStatus: async () => {},
   };
 
   const events: EventBus = {
@@ -187,6 +198,32 @@ describe('ingestInboundMessage', () => {
     expect(store.contacts).toHaveLength(2);
     expect(store.conversations).toHaveLength(2);
     expect(store.messages).toHaveLength(2);
+  });
+
+  it('webhook redelivery (externalMessageId ซ้ำ) → dedup: ไม่ persist/ไม่ publish ซ้ำ (idempotent)', async () => {
+    const { store, ingest } = setup();
+    // จำลอง LINE: externalId = user id, externalMessageId = message id ที่ provider ส่งมา (unique)
+    const lineCmd: IngestInboundCommand = {
+      ...baseCommand,
+      externalId: 'U-line-user',
+      externalMessageId: 'linemsg-1',
+    };
+
+    const first = await ingest(lineCmd);
+    const dup = await ingest(lineCmd); // provider ส่ง event เดิมซ้ำ
+
+    expect(first.ok && dup.ok).toBe(true);
+    if (!first.ok || !dup.ok) return;
+
+    expect(first.value.deduped).toBe(false);
+    expect(dup.value.deduped).toBe(true);
+
+    // persist ครั้งเดียว — ไม่มี message/contact/conversation ซ้ำ
+    expect(store.messages).toHaveLength(1);
+    expect(store.contacts).toHaveLength(1);
+    expect(store.conversations).toHaveLength(1);
+    // event publish ครั้งเดียว → agent realtime ไม่เด้งซ้ำ
+    expect(store.events).toHaveLength(1);
   });
 
   it('command ไม่ผ่าน validation (text ว่าง) → err invalid_command, ไม่แตะ store', async () => {

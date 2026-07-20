@@ -27,12 +27,15 @@ const defaultFetch: LineFetch = (url, init) => fetch(url, init);
 export function createLineHttpPushClient(doFetch: LineFetch = defaultFetch): LinePushClient {
   return async (request: LinePushRequest): Promise<LinePushResult> => {
     try {
+      const headers: Record<string, string> = {
+        'content-type': 'application/json',
+        authorization: `Bearer ${request.accessToken}`,
+      };
+      // idempotency: LINE dedupe push ที่ retry-key ซ้ำภายใน 24 ชม. → retry ปลอดภัย (ไม่ double-send)
+      if (request.retryKey) headers['x-line-retry-key'] = request.retryKey;
       const response = await doFetch(LINE_PUSH_URL, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${request.accessToken}`,
-        },
+        headers,
         body: JSON.stringify({ to: request.to, messages: request.messages }),
       });
       if (!response.ok) {

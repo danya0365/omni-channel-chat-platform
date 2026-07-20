@@ -22,6 +22,13 @@
       "when": 1784469508549,
       "tag": "0002_shiny_xavin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1784508548347,
+      "tag": "0003_smart_galactus",
+      "breakpoints": true
     }
   ]
 }
