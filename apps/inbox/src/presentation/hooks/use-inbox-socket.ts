@@ -14,10 +14,10 @@ interface Handlers {
 }
 
 /**
- * เชื่อม agent WS ไป apps/api (reconnect อัตโนมัติทุก 1.5s)
- * handler เก็บใน latest-ref → เปลี่ยน handler ไม่ทำให้ reconnect (subscribe แค่ [token])
+ * เชื่อม agent WS ไป apps/api (reconnect อัตโนมัติทุก 1.5s) — auth ผ่าน cookie (แนบกับ handshake)
+ * handler เก็บใน latest-ref → เปลี่ยน handler ไม่ทำให้ reconnect (subscribe แค่ [handlersRef])
  */
-export function useInboxSocket(token: string, handlers: Handlers): WsStatus {
+export function useInboxSocket(handlers: Handlers): WsStatus {
   const [status, setStatus] = useState<WsStatus>('connecting');
   const handlersRef = useLatestRef(handlers);
 
@@ -29,7 +29,7 @@ export function useInboxSocket(token: string, handlers: Handlers): WsStatus {
     const connect = () => {
       if (stopped) return;
       setStatus('connecting');
-      const ws = new WebSocket(inboxWsUrl(token));
+      const ws = new WebSocket(inboxWsUrl());
       socket = ws;
       ws.onopen = () => {
         setStatus('online');
@@ -57,7 +57,7 @@ export function useInboxSocket(token: string, handlers: Handlers): WsStatus {
       if (retry) clearTimeout(retry);
       socket?.close();
     };
-  }, [token, handlersRef]);
+  }, [handlersRef]);
 
   return status;
 }

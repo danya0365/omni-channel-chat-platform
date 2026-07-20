@@ -21,7 +21,8 @@ export default defineConfig({
   webServer: [
     {
       command: 'pnpm --filter @omni/api seed:dev && pnpm --filter @omni/api start',
-      env: { PORT: '4001' },
+      // COOKIE_SECURE=false: e2e รันบน http · ALLOWED_ORIGINS = origin ของ inbox → ทดสอบ CSRF Origin check จริง
+      env: { PORT: '4001', COOKIE_SECURE: 'false', ALLOWED_ORIGINS: 'http://localhost:4002' },
       url: 'http://localhost:4001/healthz',
       reuseExistingServer: false,
       timeout: 120_000,

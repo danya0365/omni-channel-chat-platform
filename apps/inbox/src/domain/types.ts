@@ -54,6 +54,6 @@ export interface AuthAgent {
 }
 
 export interface Session {
-  token: string;
+  // auth transport = httpOnly cookie (ADR-0005) — ไม่มี token ฝั่ง client · เก็บแค่ตัวตน agent (ไม่ใช่ secret)
   agent: AuthAgent;
 }

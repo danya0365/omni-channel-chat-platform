@@ -18,7 +18,7 @@ export interface UseMessages {
  * ข้อความของสายที่เลือก — โหลด/append(realtime)/ส่งตอบ
  * โหลดผ่าน loadFor (event handler ตอนคลิกสาย) ไม่ใช่ effect → ไม่ผิด set-state-in-effect
  */
-export function useMessages(token: string, onAuthError: () => void): UseMessages {
+export function useMessages(onAuthError: () => void): UseMessages {
   const [messages, setMessages] = useState<WireMessage[]>([]);
 
   const append = useCallback((message: WireMessage) => {
@@ -37,26 +37,26 @@ export function useMessages(token: string, onAuthError: () => void): UseMessages
     async (conversationId: string) => {
       setMessages([]);
       try {
-        const history = await listMessages(token, conversationId);
+        const history = await listMessages(conversationId);
         setMessages(history.slice().reverse()); // api ใหม่→เก่า · แสดงเก่า→ใหม่
       } catch (e) {
         if (e instanceof UnauthorizedError) onAuthError();
       }
     },
-    [token, onAuthError],
+    [onAuthError],
   );
 
   const send = useCallback(
     async (conversationId: string, text: string): Promise<boolean> => {
       try {
-        append(await reply(token, conversationId, text));
+        append(await reply(conversationId, text));
         return true;
       } catch (e) {
         if (e instanceof UnauthorizedError) onAuthError();
         return false;
       }
     },
-    [token, onAuthError, append],
+    [onAuthError, append],
   );
 
   return useMemo(() => ({ messages, loadFor, append, send }), [messages, loadFor, append, send]);

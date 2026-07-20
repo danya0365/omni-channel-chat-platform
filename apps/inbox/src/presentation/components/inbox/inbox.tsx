@@ -15,14 +15,13 @@ import { Sidebar } from './sidebar';
  * ไม่ import data ตรง — assign/close/reply/refresh ทั้งหมดมาจาก hook · ไฟล์นี้จึงบางและอ่าน flow จบในจอเดียว
  */
 export function Inbox({ session, onLogout }: { session: Session; onLogout: () => void }) {
-  const { token } = session;
   const me = session.agent.id;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
 
-  const convs = useConversations(token, onLogout);
-  const msgs = useMessages(token, onLogout);
+  const convs = useConversations(onLogout);
+  const msgs = useMessages(onLogout);
 
   // realtime: message → bump list + append ถ้าเป็นสายที่เปิดอยู่ · conversation → upsert
   const handleEvent = useCallback(
@@ -38,7 +37,7 @@ export function Inbox({ session, onLogout }: { session: Session; onLogout: () =>
   );
 
   // on (re)connect → refresh (sync สายที่พลาดตอนหลุด) · เป็นจุดโหลดลิสต์ครั้งแรกด้วย
-  const status = useInboxSocket(token, { onOpen: convs.refresh, onEvent: handleEvent });
+  const status = useInboxSocket({ onOpen: convs.refresh, onEvent: handleEvent });
 
   const selectConversation = useCallback(
     (id: string) => {
