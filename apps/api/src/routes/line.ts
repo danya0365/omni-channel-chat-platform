@@ -1,8 +1,32 @@
 import type { FastifyInstance } from 'fastify';
 import { idSchema } from '@omni/domain';
-import type { Channel } from '@omni/domain';
+import type { Channel, IngestInboundResult } from '@omni/domain';
 import { CHANNEL_LINE_TYPE, toIngestCommands, verifyLineSignature } from '@omni/channel-line';
 import type { AppDeps } from '../deps';
+
+/**
+ * contact ใหม่ → resolve display name จาก LINE profile API แล้ว backfill + broadcast conversation.updated
+ * best-effort: profile/update ล้ม → log code (ไม่มี PII) ไม่ล้ม webhook · fetch เฉพาะ contact ใหม่ (ไม่ทุก message)
+ */
+async function backfillContactName(
+  deps: AppDeps,
+  channel: Channel,
+  userId: string,
+  ingested: IngestInboundResult,
+): Promise<void> {
+  try {
+    const displayName = await deps.lineProfile(channel.workspaceId, channel.id, userId);
+    if (!displayName) return;
+    await deps.updateContactName(
+      channel.workspaceId,
+      ingested.contact.id,
+      ingested.conversation.id,
+      displayName,
+    );
+  } catch {
+    console.warn('line profile backfill failed');
+  }
+}
 
 /**
  * LINE channel routes — จุดเชื่อม LINE Messaging API ↔ core
@@ -65,6 +89,11 @@ export function registerLineRoutes(app: FastifyInstance, deps: AppDeps): void {
           if (!result.ok) {
             // log แค่ code (ไม่มี PII/ข้อความ) — ดู AGENTS.md
             console.warn('line ingest command failed:', result.error.code);
+            continue;
+          }
+          // contact ใหม่ → เติมชื่อจาก LINE profile (fetch เฉพาะตอนนี้ ไม่ยิงทุก message)
+          if (result.value.created.contact) {
+            await backfillContactName(deps, channel, command.externalId, result.value);
           }
         }
         return reply.send({ ok: true });

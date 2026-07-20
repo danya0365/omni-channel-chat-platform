@@ -171,6 +171,8 @@ function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     auth,
     newSessionId: () => 'web_test_session',
     lineCredentials: async () => null,
+    lineProfile: async () => null,
+    updateContactName: async () => {},
     ...overrides,
   };
 }

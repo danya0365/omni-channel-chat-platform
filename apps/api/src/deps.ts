@@ -1,12 +1,15 @@
 import type {
   ChannelRepository,
+  ContactId,
+  ConversationId,
   ConversationRepository,
   InboxReadRepository,
   ManageConversation,
   SendOutboundMessage,
+  WorkspaceId,
   createIngestInboundMessage,
 } from '@omni/domain';
-import type { LineCredentialResolver } from '@omni/channel-line';
+import type { LineCredentialResolver, LineProfileResolver } from '@omni/channel-line';
 import type { AuthService } from './auth/service';
 import type { ConnectionRegistry } from './registry';
 
@@ -36,4 +39,13 @@ export interface AppDeps {
   newSessionId: () => string;
   /** resolve LINE credentials (decrypt) — webhook route ใช้ verify x-line-signature (Phase 4) */
   lineCredentials: LineCredentialResolver;
+  /** resolve ชื่อ contact จาก LINE profile API — route เรียกตอนสร้าง contact ใหม่ (คืน null ถ้าล้ม) */
+  lineProfile: LineProfileResolver;
+  /** backfill ชื่อ contact + broadcast conversation.updated (inbox refresh ชื่อ realtime) */
+  updateContactName: (
+    workspaceId: WorkspaceId,
+    contactId: ContactId,
+    conversationId: ConversationId,
+    displayName: string,
+  ) => Promise<void>;
 }

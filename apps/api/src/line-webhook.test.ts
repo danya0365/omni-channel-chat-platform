@@ -109,6 +109,8 @@ function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     auth: noopAuth,
     newSessionId: () => 'sess',
     lineCredentials,
+    lineProfile: async () => null,
+    updateContactName: async () => {},
     ...overrides,
   };
 }

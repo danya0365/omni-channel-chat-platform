@@ -26,10 +26,12 @@ import type { DbHandle } from '@omni/db';
 import { createWebOutboundGateway } from '@omni/channel-web';
 import {
   createLineCredentialResolver,
+  createLineHttpProfileClient,
   createLineHttpPushClient,
   createLineOutboundGateway,
+  createLineProfileResolver,
 } from '@omni/channel-line';
-import type { LineCredentialResolver, LineFetch } from '@omni/channel-line';
+import type { LineCredentialResolver, LineFetch, LineProfileResolver } from '@omni/channel-line';
 import type { AppDeps } from './deps';
 import { createAuthService } from './auth/service';
 import { createDispatchOutboundGateway } from './outbound-dispatch';
@@ -78,7 +80,11 @@ function buildChannelIo(
   channels: ChannelRepository,
   channelEncryptionKey: string | undefined,
   lineFetch: LineFetch | undefined,
-): { outbound: OutboundGateway; lineCredentials: LineCredentialResolver } {
+): {
+  outbound: OutboundGateway;
+  lineCredentials: LineCredentialResolver;
+  lineProfile: LineProfileResolver;
+} {
   const routeResolver = createWebRouteResolver(handle.db);
 
   const encryptionKey = loadEncryptionKey(channelEncryptionKey ?? DEV_CHANNEL_ENCRYPTION_KEY);
@@ -86,6 +92,11 @@ function buildChannelIo(
   const lineCredentials = createLineCredentialResolver((workspaceId, channelId) =>
     channelCredentials.get(workspaceId, channelId),
   );
+  // resolve ชื่อ contact จาก LINE profile API (fetch เฉพาะตอน contact ใหม่ ที่ route) — reuse lineFetch seam
+  const lineProfile = createLineProfileResolver({
+    resolveCredentials: lineCredentials,
+    client: createLineHttpProfileClient(lineFetch),
+  });
 
   const webOutbound = createWebOutboundGateway({ registry, resolveRoute: routeResolver });
   const lineOutbound = createLineOutboundGateway({
@@ -103,7 +114,7 @@ function buildChannelIo(
   // retry เฉพาะ deliver ที่ล้มชั่วคราว (LINE 5xx/timeout) — ยิงตอน deliver นอก tx · idempotent ผ่าน retry-key
   const outbound = createRetryingOutboundGateway(dispatch, { attempts: 3, backoffMs: [200, 600] });
 
-  return { outbound, lineCredentials };
+  return { outbound, lineCredentials, lineProfile };
 }
 
 /**
@@ -144,6 +155,28 @@ function buildSendOutbound(
 }
 
 /**
+ * ประกอบ updateContactName — backfill ชื่อ contact + broadcast conversation.updated (inbox refresh ชื่อ realtime)
+ * ใช้ tx เดียว (update + publish atomic) แล้ว triggerDrain · แยก helper กัน God function ใน createContainer
+ */
+function buildUpdateContactName(
+  handle: DbHandle,
+  triggerDrain: () => void,
+): AppDeps['updateContactName'] {
+  return async (workspaceId, contactId, conversationId, displayName) => {
+    await handle.db.transaction(async (tx) => {
+      await createContactRepository(tx).updateDisplayName(workspaceId, contactId, displayName);
+      await createOutboxEventBus(tx).publish({
+        type: 'conversation.updated',
+        workspaceId,
+        conversationId,
+        occurredAt: systemClock(),
+      });
+    });
+    triggerDrain();
+  };
+}
+
+/**
  * Composition root จริง — ต่อ DB + repos + services + WS registry + outbound gateway + outbox realtime
  * จุดเดียวที่ adapter (db, channel-web) มาเจอกัน (structural typing bridge resolver ↔ gateway)
  *
@@ -163,7 +196,7 @@ export function createContainer(config: ContainerConfig): Container {
   const inboxRead = createInboxReadRepository(handle.db);
 
   // channel IO (credential resolver + outbound gateway ต่อช่องทาง + dispatcher) — ประกอบแยกกัน God function
-  const { outbound, lineCredentials } = buildChannelIo(
+  const { outbound, lineCredentials, lineProfile } = buildChannelIo(
     handle,
     registry,
     channels,
@@ -242,6 +275,8 @@ export function createContainer(config: ContainerConfig): Container {
     },
   };
 
+  const updateContactName = buildUpdateContactName(handle, triggerDrain);
+
   const auth = createAuthService({
     agents,
     secret: config.authSecret,
@@ -262,6 +297,8 @@ export function createContainer(config: ContainerConfig): Container {
     auth,
     newSessionId: () => `web_${randomUUID()}`,
     lineCredentials,
+    lineProfile,
+    updateContactName,
   };
 
   return {

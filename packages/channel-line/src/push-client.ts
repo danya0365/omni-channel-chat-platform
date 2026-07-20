@@ -7,12 +7,14 @@ export interface LineHttpResponse {
   ok: boolean;
   status: number;
   headers: { get(name: string): string | null };
+  /** อ่าน body เป็น JSON — profile API ใช้ (push ไม่ใช้) · optional เพื่อไม่บังคับ response ที่ไม่มี body */
+  json?(): Promise<unknown>;
 }
 
-/** fetch subset ที่ client นี้ใช้ — inject เพื่อ test โดยไม่ยิง network จริง */
+/** fetch subset ที่ client นี้ใช้ — inject เพื่อ test โดยไม่ยิง network จริง · body optional (GET เช่น profile ไม่มี) */
 export type LineFetch = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body: string },
+  init: { method: string; headers: Record<string, string>; body?: string },
 ) => Promise<LineHttpResponse>;
 
 const defaultFetch: LineFetch = (url, init) => fetch(url, init);

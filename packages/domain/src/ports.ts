@@ -42,6 +42,13 @@ export interface ContactRepository {
     contact: Contact,
     identity: ContactIdentity,
   ): Promise<void>;
+
+  /** อัปเดตชื่อ contact (เช่น backfill จาก LINE profile API หลังสร้าง) — scope workspace */
+  updateDisplayName(
+    workspaceId: WorkspaceId,
+    contactId: ContactId,
+    displayName: string,
+  ): Promise<void>;
 }
 
 export interface ConversationRepository {

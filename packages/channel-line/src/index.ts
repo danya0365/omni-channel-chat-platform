@@ -11,3 +11,4 @@ export * from './credentials';
 export * from './inbound';
 export * from './outbound-gateway';
 export * from './push-client';
+export * from './profile-client';

@@ -39,5 +39,12 @@ export function createContactRepository(db: Executor): ContactRepository {
         await tx.insert(contactIdentities).values(identity);
       });
     },
+
+    updateDisplayName: async (workspaceId, contactId, displayName) => {
+      await db
+        .update(contacts)
+        .set({ displayName })
+        .where(and(eq(contacts.workspaceId, workspaceId), eq(contacts.id, contactId)));
+    },
   };
 }
