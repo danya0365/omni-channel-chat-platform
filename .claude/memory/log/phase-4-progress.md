@@ -1,6 +1,6 @@
 ---
 name: phase-4-progress
-description: 'สถานะ Phase 4 (routing + LINE) — sub-phase A+B เสร็จ + hardening pass (dedup/tx-split/retry) + เก็บ tech debt B (failed-status realtime, LINE profile name, auth httpOnly cookie ADR-0005) ครบ verify. ถัดไป = เปิด PR → Phase 5. อ่านตอนสรุป Phase 4 / เริ่ม Phase 5 / แตะ auth-cookie'
+description: 'สถานะ Phase 4 (routing + LINE) — จบแล้ว + merged เข้า main (PR #2–#6). sub-phase A+B + hardening pass (dedup/tx-split/retry) + tech debt B (failed-status realtime, LINE profile name, auth httpOnly cookie ADR-0005) ครบ verify. ถัดไป = Phase 5 (bot/AI reply). อ่านตอนเริ่ม Phase 5 / ทบ deferred tech debt / แตะ auth-cookie'
 metadata:
   node_type: memory
   type: log
@@ -10,18 +10,20 @@ metadata:
   originSessionId: c95243e8-0ef0-4fc2-b3aa-cfd6f5dd01c6
 ---
 
-# Handoff — Phase 4 กำลังทำ (routing + LINE channel)
+# Handoff — Phase 4 จบแล้ว (routing + LINE channel) · merged เข้า main
 
-> อ่านไฟล์นี้ + [[project-overview]] + [[adr-0004-phase-4-routing-and-line-channel]] แล้วทำต่อได้ทันที
-> phase-3-progress = Phase 3 จบแล้ว (agent inbox realtime + auth)
+> อ่านไฟล์นี้ + [[project-overview]] + [[adr-0004-phase-4-routing-and-line-channel]] แล้วเริ่ม Phase 5 ต่อได้ทันที
+> phase-2/3-progress ถูก archive แล้ว (Phase จบ merged main) — ดู `_archive/`
 
-## สถานะ (2026-07-19)
+## สถานะ (อัปเดต 2026-07-20 — ยืนยันจาก origin)
 
-- branch **`feature/phase-4-routing-line`** (แยกจาก PR Phase 1-3 ที่ `feature/phase-1-stack-skeleton`)
-  - remote: `git@github.com:danya0365/omni-channel-chat-platform.git` · push แล้ว
-- **sub-phase A (routing/assignment) เสร็จ + verify ครบ** · **sub-phase B (LINE channel) เสร็จ + verify (gate+integration+e2e)** · **commit + push แล้ว** (2 commits: `9cdd9e2` feat(channel-line) + `ea6632f` test(inbox) e2e บน `feature/phase-4-routing-line`)
-- ⭐ **ถัดไป**: เปิด PR (base `feature/phase-1-stack-skeleton`) · แล้วขยับ **Phase 5** (bot/automation keyword→canned→escalate + AI reply Claude API, ADR แยก, ปม PII)
-- gate เขียว **165 unit** + integration **28** · inbox build ผ่าน · **Playwright e2e 2 ผ่าน** (browser จริง)
+- ✅ **Phase 4 merge เข้า `main` ครบแล้ว** ผ่าน **PR #2–#6** (ตัวปิดท้าย **PR #6 = `0180af4`** รวม hardening + tech debt B)
+  - trunk จริง = **`main`** (PR base = main · Phase 1–3 อยู่ใน main แล้วผ่าน **PR #1**) — ไม่ใช่ stack บน `feature/phase-1-stack-skeleton`
+  - branch **`feature/phase-4-routing-line`** ถูก **ลบทิ้ง**บน remote หลัง merge · local ยังปักที่ branch นี้และตามหลัง `main` 1 merge commit (พี่ค่อย `git checkout main && git pull` ทีหลัง)
+  - remote: `git@github.com:danya0365/omni-channel-chat-platform.git`
+- **sub-phase A (routing/assignment) เสร็จ + verify ครบ** · **sub-phase B (LINE channel) เสร็จ + verify (gate+integration+e2e)**
+- ⭐ **ถัดไป**: ขยับ **Phase 5** (bot/automation keyword→canned→escalate + AI reply Claude API, ADR แยก, ปม PII)
+- gate เขียว **165 unit** + integration **34** · inbox build ผ่าน · **Playwright e2e 2 ผ่าน** (browser จริง)
 - ✅ เคลียร์แล้ว: verify browser inbox (Playwright e2e) · `/new-channel line` ([[line]] spec) · seed LINE demo channel (`chn_line_demo`)
 
 ## 🔧 Hardening pass + เก็บ tech debt B (2026-07-20) — เสร็จ + verify ครบ
