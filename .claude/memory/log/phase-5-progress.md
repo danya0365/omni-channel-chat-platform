@@ -1,6 +1,6 @@
 ---
 name: phase-5-progress
-description: สถานะ Phase 5 (bot/automation + AI reply) — Increment 1-3b เขียวครบ (gate 217 + integration 41) · 3a (rule-only) committed แล้ว (feat 5a8c79b) · 3b (AI adapter @omni/bot-anthropic) อยู่ใน working tree รอ commit. อ่านตอนทำ Phase 5 ต่อ / แตะ bot / outbox cursor / bot-anthropic / Claude API
+description: สถานะ Phase 5 (bot/automation + AI reply) — Increment 1-3b เขียว+committed ครบ (gate 217 + integration 41) บน branch feature/phase-5-bot-automation (ยังไม่ merge/PR). อ่านตอนทำ Phase 5 ต่อ / แตะ bot / outbox cursor / bot-anthropic / Claude API
 metadata:
   node_type: memory
   type: log
@@ -8,7 +8,7 @@ metadata:
   scope: global
   updated: 2026-07-20
   originSessionId: 9c11ffe5-d555-468b-8678-432ff977c6c2
-  modified: 2026-07-20T09:57:00.948Z
+  modified: 2026-07-20T10:02:56.585Z
 ---
 
 # Handoff — Phase 5 กำลังทำ (bot/automation + AI reply)
@@ -16,11 +16,12 @@ metadata:
 > อ่านไฟล์นี้ + [[adr-0006-phase-5-bot-automation-and-ai-reply]] แล้วทำต่อได้ทันที
 > Phase 4 จบ/merged main แล้ว ([[phase-4-progress]])
 
-## สถานะ (2026-07-20)
+## สถานะ (2026-07-20) — Phase 5 core flow ครบ + committed
 
-- branch **`feature/phase-5-bot-automation`** · **inc 1+2+3a committed** (feat `5a8c79b` + docs `6d19cce`) · **3b อยู่ใน working tree รอ commit** (รอพี่สั่งตามกฎเหล็ก)
-- **ADR-0006 เขียนแล้ว** + pointer ใน MEMORY.md · decisions หลัก: consumer แยก (additive multi-subscriber outbox) · bot รับสายใหม่ก่อน (escalate=null queue) · rules ต่อ workspace · AI = adapter inject fetch · 5A+5B รวด
+- branch **`feature/phase-5-bot-automation`** · commits: 3a feat `5a8c79b` + docs `6d19cce` · **3b feat `e648bb8` + docs `664c44a`** · working tree สะอาด · **ยังไม่ merge/PR เข้า main**
+- **ADR-0006** + pointer ใน MEMORY.md · decisions หลัก: consumer แยก (additive multi-subscriber outbox) · bot รับสายใหม่ก่อน (escalate=null queue) · rules ต่อ workspace · AI = adapter inject fetch · 5A+5B รวด
 - ⭐ **Increment 1-3b เขียวครบ** (gate 217 + integration 41) — Phase 5 ครบ core flow (rule + AI fallback)
+- **ถัดไป (ยังไม่เริ่ม)**: (ก) verify ยิง Anthropic จริง 1 ครั้งตอนมี key (พิสูจน์ wire shape ที่ freeze) · (ข) hardening — AI timeout/rate-limit, outbox retention/cleanup (2 กลไก), dedup · (ค) admin UI จัดการ rules/bot config · (ง) merge → PR
 
 ## ✅ Increment 1 — Domain (pure) — เขียว (gate 194 unit)
 
