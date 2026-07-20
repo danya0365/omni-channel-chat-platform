@@ -8,6 +8,7 @@ import { createLineOutboundGateway } from './outbound-gateway';
 import type { LinePushClient, LineRouteResolver } from './outbound-gateway';
 import { createLineHttpPushClient } from './push-client';
 import type { LineFetch, LineHttpResponse } from './push-client';
+import { lineRetryKey } from './retry-key';
 
 const CHANNEL_SECRET = 'test-channel-secret-สมมติ';
 
@@ -197,6 +198,8 @@ describe('createLineOutboundGateway', () => {
       accessToken: 'access-token-สมมติ',
       to: 'U80696558e1aa831...',
       messages: [{ type: 'text', text: 'ตอบกลับจาก inbox' }],
+      // idempotency key derive จาก message.id (retry ปลอดภัย)
+      retryKey: lineRetryKey('msg_1'),
     });
   });
 
@@ -280,6 +283,26 @@ describe('createLineHttpPushClient', () => {
     });
   });
 
+  it('มี retryKey → ส่ง header x-line-retry-key (idempotency) · ไม่มี → ไม่ใส่ header', async () => {
+    const seen: Array<Record<string, string>> = [];
+    const fakeFetch: LineFetch = async (_url, init) => {
+      seen.push(init.headers);
+      return { ok: true, status: 200, headers: { get: () => null } };
+    };
+    const client = createLineHttpPushClient(fakeFetch);
+
+    await client({
+      accessToken: 'x',
+      to: 'U1',
+      messages: [{ type: 'text', text: 'hi' }],
+      retryKey: 'key-1',
+    });
+    await client({ accessToken: 'x', to: 'U1', messages: [{ type: 'text', text: 'hi' }] });
+
+    expect(seen[0]?.['x-line-retry-key']).toBe('key-1');
+    expect(seen[1]?.['x-line-retry-key']).toBeUndefined();
+  });
+
   it('non-2xx → ok:false + status', async () => {
     const fakeFetch: LineFetch = async () => ({
       ok: false,
@@ -308,5 +331,21 @@ describe('createLineHttpPushClient', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.status).toBe(0);
+  });
+});
+
+describe('lineRetryKey', () => {
+  it('deterministic — message.id เดิม → key เดิม (retry ใช้ค่าเดียวกัน)', () => {
+    expect(lineRetryKey('msg_abc')).toBe(lineRetryKey('msg_abc'));
+  });
+
+  it('message.id ต่างกัน → key ต่างกัน', () => {
+    expect(lineRetryKey('msg_1')).not.toBe(lineRetryKey('msg_2'));
+  });
+
+  it('รูปแบบเป็น UUID (8-4-4-4-12 hex, version 4)', () => {
+    expect(lineRetryKey('msg_1')).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
   });
 });

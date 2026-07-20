@@ -33,6 +33,7 @@ import type { LineCredentialResolver } from '@omni/channel-line';
 import type { AppDeps } from './deps';
 import { createAuthService } from './auth/service';
 import { createDispatchOutboundGateway } from './outbound-dispatch';
+import { createRetryingOutboundGateway } from './outbound-retry';
 import { createConnectionRegistry } from './registry';
 import type { ConnectionRegistry } from './registry';
 import { createOutboxConsumer } from './realtime/outbox-consumer';
@@ -89,13 +90,15 @@ function buildChannelIo(
     resolveCredentials: lineCredentials,
     push: createLineHttpPushClient(),
   });
-  const outbound = createDispatchOutboundGateway({
+  const dispatch = createDispatchOutboundGateway({
     resolveChannelType: async (message) => {
       const channel = await channels.findPublicById(message.channelId);
       return channel && channel.workspaceId === message.workspaceId ? channel.type : null;
     },
     byType: { web: webOutbound, line: lineOutbound },
   });
+  // retry เฉพาะ deliver ที่ล้มชั่วคราว (LINE 5xx/timeout) — ยิงตอน deliver นอก tx · idempotent ผ่าน retry-key
+  const outbound = createRetryingOutboundGateway(dispatch, { attempts: 3, backoffMs: [200, 600] });
 
   return { outbound, lineCredentials };
 }

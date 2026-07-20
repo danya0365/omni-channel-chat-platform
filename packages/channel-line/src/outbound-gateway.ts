@@ -1,6 +1,7 @@
 import { err, ok } from '@omni/domain';
 import type { Message, MessageContent, OutboundGateway } from '@omni/domain';
 import type { LineCredentialResolver } from './credentials';
+import { lineRetryKey } from './retry-key';
 
 /**
  * LineRouteResolver — จาก outbound message หา LINE userId ปลายทาง (null = ยังไม่รู้ identity)
@@ -19,6 +20,8 @@ export interface LinePushRequest {
   /** LINE userId ปลายทาง */
   to: string;
   messages: LineTextMessage[];
+  /** idempotency key (X-Line-Retry-Key) — retry ของ message เดิมใช้ค่าเดิม กัน double-send · optional */
+  retryKey?: string;
 }
 
 export type LinePushResult =
@@ -70,6 +73,8 @@ export function createLineOutboundGateway(deps: LineOutboundDeps): OutboundGatew
         accessToken: credentials.channelAccessToken,
         to,
         messages,
+        // idempotency: retry ของ message เดิม → key เดิม → LINE ไม่ push ซ้ำ
+        retryKey: lineRetryKey(message.id),
       });
       if (!result.ok) {
         return err({ code: 'send_failed', message: `line push failed (status ${result.status})` });
