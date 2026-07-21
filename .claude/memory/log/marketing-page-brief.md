@@ -8,12 +8,16 @@ metadata:
   scope: go-to-market
   updated: 2026-07-19
   originSessionId: 46ba0ab4-fb53-4b26-a045-19ba5c8332f1
-  modified: 2026-07-21T05:45:46.971Z
+  modified: 2026-07-21T07:24:38.130Z
 ---
 
-# Marketing Page — Brief (ร่าง 2026-07-19 · **active focus ตั้งแต่ 2026-07-20**)
+# Marketing Page — Brief (ร่าง 2026-07-19)
 
-> **สถานะ: ACTIVE — พี่ pivot มาลุยงานนี้ 2026-07-20** (พัก dev Phase 5 ไว้ที่จุด PR-ready ดู [[phase-5-progress]])
+> ## ⏸️ สถานะ: **พักไว้ (2026-07-21)** — พี่สั่งพักมาต่องาน [[billing-quotation-followup]] แทน
+>
+> **ทำถึงไหน:** ✅ ICP + positioning เคาะแล้ว ([[adr-0008-icp-and-positioning]]) · ✅ landing เขียนใหม่ทั้งหน้าแล้ว
+> (verify build เขียว + Playwright 8 ข้อผ่าน · **ยังไม่ commit**)
+> **กลับมาทำต่อที่:** section 5 ข้อ 3-6 (screenshot เดโม · ตารางเทียบ per-seat · lead funnel · one-pager)
 > เป้าหมาย: สร้าง **หน้า Marketing/landing** + ชุดขาย (kit) ให้ **ทีม marketing เอาโปรเจคนี้ไปขาย**
 > อ่านคู่: [[project-overview]] · [[frontend-architecture-standard]] · [[adr-0004-phase-4-routing-and-line-channel]]
 >
@@ -107,13 +111,13 @@ metadata:
 - Brand kit: ชื่อผลิตภัณฑ์, โลโก้, สี — เรามี **semantic theme (multi-theme) ใน inbox** อยู่แล้ว เอามาต่อยอด brand ได้
 - Copy: TH เป็นหลัก (+ EN ถ้าจะขายนอก)
 
-### C. Go-to-market decisions ที่ยัง "ต้องเคาะ" (open — อย่าเพิ่งเขียนหน้าเพจก่อนตอบ)
+### C. Go-to-market decisions — **เคาะแล้ว 2026-07-21** (ดู [[adr-0008-icp-and-positioning]])
 
-- **Target segment / ICP** — SME LINE-first? e-commerce? agency? B2B? → กำหนดทุกอย่างที่เหลือ
-- **Pricing & packaging** — per-seat? per-workspace? self-host license? freemium?
-- **คู่แข่งที่จะเทียบ** — respond.io, SleekFlow (แรงในไทย), Zendesk/Intercom (global), Page365/R-Chat (ไทย) → ชูจุดต่าง: self-host/own-data + เปิด adapter เพิ่มช่องทางเอง + ราคาไม่บวมตาม seat
-- **จุดยืน (positioning)** — จะชู "omni-channel รวมจอ", "self-host/ข้อมูลอยู่กับคุณ", หรือ "ไทย/LINE-first" เป็นหัวหอก?
-- **Lead funnel** — ฟอร์ม lead ไปไหน (CRM/อีเมล/ชีต)?
+- ✅ **Target segment / ICP** — หัวหอก = **เอเจนซี่ / ธุรกิจหลายแบรนด์** · secondary = ธุรกิจบริการ/ศูนย์ซัพพอร์ต · SME LINE-first เก็บไว้ทีหลัง (price sensitive ต้องเล่น volume)
+- ✅ **จุดยืน (positioning)** — หัวหอก = **"ราคาไม่บวมตามจำนวนคน"** (ชน per-seat ตรงๆ) → hero: _"เพิ่มทีมตอบแชทกี่คน ราคาก็เท่าเดิม"_ · ลำดับสาร: ราคาไม่บวม → รวมจอเดียว → multi-tenant → self-host (ตัวปิดดีล)
+- ✅ **Pricing & packaging** — setup ครั้งเดียว + รายเดือนคงที่ (ไม่มี per-seat) ผ่านใบเสนอราคาแบบเลือกฟีเจอร์เอง
+- 🔜 **คู่แข่งที่จะเทียบ** — respond.io, SleekFlow (แรงในไทย), Zendesk/Intercom (global), Page365/R-Chat (ไทย) · **ยังค้าง: ต้องหาราคา per-seat จริงของแต่ละเจ้ามาทำตารางเทียบ — ห้ามมั่วตัวเลข**
+- 🔜 **Lead funnel** — ฟอร์ม lead ไปไหน (CRM/อีเมล/ชีต)? · ตอนนี้ CTA ชี้ `/contact` แล้วแต่ปลายทางยังไม่ต่อ
 
 ### D. โน้ต technical ตอนจะ build หน้าเพจ (สำหรับ session อนาคต)
 
@@ -124,9 +128,21 @@ metadata:
 
 ---
 
-## 5. Next step (เมื่อพี่พร้อมลุย)
+## 5. Next step
 
-1. เคาะข้อ **C (ICP + pricing + positioning)** ก่อน — เป็น input ของทุกอย่าง
-2. ถ่าย screenshot/เดโม inbox จริง (ใช้ e2e harness)
-3. ร่าง copy หน้าเพจตาม section ข้อ A
-4. Build หน้า (Next.js, ตาม standard) → verify browser (Playwright)
+1. ~~เคาะข้อ **C (ICP + pricing + positioning)**~~ → ✅ **เสร็จ 2026-07-21** ([[adr-0008-icp-and-positioning]])
+2. ~~ร่าง copy + build หน้าเพจ~~ → ✅ **เสร็จ** — เขียน landing ใน `apps/billing` ใหม่ทั้งหน้าตาม positioning
+   (hero / stats / features / use-case / FAQ / CTA / metadata+OG) · ถอด testimonial ปลอม · แก้เคลมช่องทาง ·
+   verify build เขียว + Playwright 8 ข้อผ่าน
+3. 🔜 **ถ่าย screenshot/เดโม inbox จริง** (ใช้ [[inbox-e2e-harness]]) แล้วใส่ลงหน้าเพจ — ตอนนี้ยังไม่มีภาพ product เลย
+4. 🔜 **ตารางเทียบ per-seat** — หาราคาจริงของ SleekFlow/respond.io/Zendesk มาทำตัวเลขเทียบ (หัวหอก positioning
+   จะแรงขึ้นมากถ้ามีเลขจริง) · **ห้ามมั่วตัวเลข**
+5. 🔜 **Lead funnel** — ต่อฟอร์ม `/contact` ให้ส่งไปที่ใดที่หนึ่งจริง (ตอนนี้ CTA ชี้ไปแต่ปลายทางยังไม่ทำงาน)
+6. 🔜 one-pager / pitch deck สำหรับเซลล์
+
+### 📌 กฎที่ต้องรักษาตอนแก้หน้าเพจต่อ (จาก ADR-0008)
+
+- ❌ **ห้ามใส่ testimonial/รีวิว/โลโก้ลูกค้าที่ไม่มีจริง** — ของเดิมเคยมี (คุณสมชาย/วิมล/พิชัย 5 ดาว) ถอดออกแล้ว
+  แทนด้วย use-case card ที่พูดในนามเราเอง
+- ❌ **ห้ามเคลมช่องทางที่ยังไม่ได้ต่อ** — ต่อจริง = **web widget + LINE** · ที่เหลือพูดได้แค่ "สั่งเสียบเพิ่มได้"
+- 🟡 AI reply = "beta" จนกว่าจะยิง Anthropic จริง · bot rule-based = เคลมได้เต็มปาก

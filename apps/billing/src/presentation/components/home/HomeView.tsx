@@ -9,82 +9,83 @@ import { useState } from 'react';
 const FEATURES = [
   {
     id: 'feature-1',
-    icon: '💬',
-    title: 'รวมทุกช่องทางไว้ในจอเดียว',
-    description: 'LINE, Messenger, Instagram, WhatsApp, เว็บ, อีเมล — ทีมตอบจากกล่องเดียว ไม่ต้องสลับแอป',
+    icon: '💸',
+    title: 'เพิ่มคนตอบแชท ราคาไม่ขยับ',
+    description:
+      'จ่ายค่าติดตั้งครั้งเดียว + รายเดือนคงที่ ทีม 3 คนหรือ 30 คนก็ราคาเดียวกัน — ไม่มีค่าหัวรายเดือนต่อผู้ใช้',
   },
   {
     id: 'feature-2',
-    icon: '⚡',
-    title: 'Realtime ทั้งทีม',
-    description: 'ข้อความเด้งเข้าทันทีผ่าน WebSocket หลาย agent เห็นตรงกัน ไม่ต้องกด refresh',
+    icon: '🏢',
+    title: 'หลายแบรนด์ หลายลูกค้า ระบบเดียว',
+    description:
+      'แยก workspace ต่อแบรนด์บน deployment เดียว รับลูกค้าเพิ่มโดยไม่ต้องซื้อเครื่องมือใหม่ต่อราย',
   },
   {
     id: 'feature-3',
-    icon: '🎯',
-    title: 'มอบหมายงานชัด ไม่ตอบซ้ำ',
-    description: 'รับสาย/โอน/ปิดสาย เห็นชัดว่าใครดูแลสายไหน กันสายตกหล่นและตอบชนกัน',
+    icon: '💬',
+    title: 'รวมทุกช่องทางไว้ในจอเดียว',
+    description:
+      'พร้อมใช้วันนี้: LINE + แชทบนเว็บ · Messenger, Instagram, WhatsApp, Telegram, อีเมล สั่งเสียบเพิ่มได้ตามต้องการ',
   },
   {
     id: 'feature-4',
-    icon: '🤖',
-    title: 'บอทตอบอัตโนมัติ 24 ชม.',
-    description: 'ตั้ง keyword rule ให้บอทตอบคำถามซ้ำๆ เอง ตอบไม่ได้ก็ส่งต่อคนจริงทันที',
+    icon: '🎯',
+    title: 'มอบหมายงานชัด ไม่ตอบซ้ำ',
+    description:
+      'รับสาย/โอน/ปิดสาย เห็นชัดว่าใครดูแลสายไหน ข้อความเด้งเข้าทันที ทุกคนในทีมเห็นตรงกัน',
   },
   {
     id: 'feature-5',
-    icon: '👥',
-    title: 'ประวัติลูกค้ารวมศูนย์',
-    description: 'ลูกค้า 1 คน = 1 โปรไฟล์ เห็นบทสนทนาทุกช่องทางย้อนหลังได้ครบ',
+    icon: '🤖',
+    title: 'บอทตอบอัตโนมัติ 24 ชม.',
+    description:
+      'ตั้ง keyword rule เองได้จากหน้าจอ ตอบไม่ได้ก็ส่งต่อคนจริงทันที · AI ช่วยตอบอยู่ในช่วง beta',
   },
   {
     id: 'feature-6',
     icon: '🔒',
     title: 'ข้อมูลอยู่กับคุณ',
-    description: 'เข้ารหัส credential AES-256-GCM · ตรวจลายเซ็น webhook · self-host ได้ ไม่ผูก SaaS ต่างชาติ',
+    description:
+      'เข้ารหัส credential AES-256-GCM · ตรวจลายเซ็น webhook · self-host ได้ ไม่ผูก SaaS ต่างชาติ',
   },
 ];
 
 /**
- * Landing page stats
+ * Landing page stats — ตัวเลขต้องพิสูจน์ได้จากระบบจริง/ใบเสนอราคา (ห้ามใส่เลขลอย)
  */
 const STATS = [
-  { id: 'stat-1', value: '฿27,000', label: 'เริ่มต้น (Solo dev + AI)' },
-  { id: 'stat-2', value: '70+', label: 'ฟีเจอร์ให้เลือก' },
-  { id: 'stat-3', value: '10+', label: 'ช่องทางที่เชื่อมได้' },
-  { id: 'stat-4', value: '4', label: 'รูปแบบทีมให้เลือกจ้าง' },
+  { id: 'stat-1', value: '฿0', label: 'ค่าหัวรายเดือนต่อผู้ใช้' },
+  { id: 'stat-2', value: 'ไม่จำกัด', label: 'จำนวนคนในทีม / แบรนด์' },
+  { id: 'stat-3', value: '70+', label: 'ฟีเจอร์ เลือกจ่ายเท่าที่ใช้' },
+  { id: 'stat-4', value: '฿27,000', label: 'เริ่มต้น (ติดตั้งครั้งเดียว)' },
 ];
 
 /**
- * Testimonials
+ * "เหมาะกับใคร" — use-case จริงที่ระบบตอบได้
+ * ⚠️ ห้ามแทนที่ด้วย testimonial/รีวิวสมมติ จนกว่าจะมีลูกค้าจริงที่ยินยอมให้อ้างอิง (ADR-0008)
  */
-const TESTIMONIALS = [
+const USE_CASES = [
   {
-    id: 'testimonial-1',
-    name: 'คุณสมชาย',
-    role: 'เจ้าของร้าน',
-    company: 'ร้านค้าออนไลน์',
-    avatar: '👨‍💼',
-    content: 'เมื่อก่อนเปิด 4 แอปตอบลูกค้า ตอนนี้จอเดียวจบ ไม่มีข้อความหลุดอีกเลย',
-    rating: 5,
+    id: 'use-case-1',
+    icon: '🏢',
+    title: 'เอเจนซี่ / ดูแลหลายแบรนด์',
+    situation: 'รับดูแลแชทให้ลูกค้าหลายเจ้า ต้องซื้อเครื่องมือ (และจ่ายค่าหัว) เพิ่มทุกครั้งที่ได้ลูกค้าใหม่',
+    outcome: 'แยก workspace ต่อลูกค้าบน deployment เดียว รับงานเพิ่มโดยต้นทุนต่อรายแทบไม่ขยับ',
   },
   {
-    id: 'testimonial-2',
-    name: 'คุณวิมล',
-    role: 'หัวหน้าทีมซัพพอร์ต',
-    company: 'ธุรกิจบริการ',
-    avatar: '👩‍💼',
-    content: 'รู้ชัดว่าใครถือสายไหน ไม่ตอบชนกันแล้ว เวลาตอบครั้งแรกเร็วขึ้นเห็นๆ',
-    rating: 5,
+    id: 'use-case-2',
+    icon: '🎧',
+    title: 'ธุรกิจบริการ / ศูนย์ซัพพอร์ต',
+    situation: 'ทีม 5–20 คนตอบพร้อมกัน ไม่รู้ว่าใครถือสายไหน ตอบชนกันบ้าง ตกหล่นบ้าง',
+    outcome: 'รับสาย/โอน/ปิดสายชัดเจน เห็นสถานะทุกสายแบบ realtime คุมเวลาตอบครั้งแรกได้',
   },
   {
-    id: 'testimonial-3',
-    name: 'คุณพิชัย',
-    role: 'ผู้บริหาร',
-    company: 'เอเจนซี่ดูแลหลายแบรนด์',
-    avatar: '🧑‍💼',
-    content: 'ระบบเดียวรับลูกค้าได้หลายเจ้า แยก workspace ชัด ไม่ต้องซื้อเครื่องมือเพิ่มต่อลูกค้า',
-    rating: 5,
+    id: 'use-case-3',
+    icon: '🛒',
+    title: 'ร้านค้า / อีคอมเมิร์ซ',
+    situation: 'ลูกค้าทักมาหลายช่องทาง คำถามซ้ำๆ กินเวลาทีม ข้อความหลุดตอนคนล้น',
+    outcome: 'รวมทุกช่องทางไว้จอเดียว ให้บอทรับคำถามซ้ำ เหลือคนไว้ตอบเคสที่ปิดการขายได้',
   },
 ];
 
@@ -96,7 +97,19 @@ const FAQ_ITEMS = [
     id: 'faq-1',
     question: 'OmniChat คืออะไร?',
     answer:
-      'แพลตฟอร์มรวมข้อความลูกค้าจากทุกช่องทาง (LINE, Messenger, Instagram, WhatsApp, เว็บ, อีเมล) มาไว้ในกล่องเดียว พร้อมระบบมอบหมายงาน บอทตอบอัตโนมัติ และประวัติลูกค้ารวมศูนย์',
+      'แพลตฟอร์มรวมข้อความลูกค้าจากทุกช่องทางมาไว้ในกล่องเดียว พร้อมระบบมอบหมายงาน บอทตอบอัตโนมัติ และประวัติลูกค้ารวมศูนย์ · ช่องทางที่เชื่อมได้ทันทีตอนนี้คือ LINE และแชทบนเว็บ ส่วน Messenger, Instagram, WhatsApp, Telegram และอีเมล เป็นช่องทางที่สั่งเสียบเพิ่มได้ — ระบบออกแบบมาให้เพิ่มช่องทางโดยไม่ต้องรื้อของเดิม',
+  },
+  {
+    id: 'faq-seats',
+    question: 'ทีมโตขึ้นแล้วค่าใช้จ่ายเพิ่มไหม?',
+    answer:
+      'ไม่เพิ่มตามจำนวนคนครับ — เราไม่คิดค่าหัวรายเดือนต่อผู้ใช้ (per-seat) แบบเครื่องมือ SaaS ทั่วไป · คุณจ่ายค่าติดตั้งครั้งเดียวตามฟีเจอร์ที่เลือก + ค่าบริการรายเดือนคงที่ จะเพิ่มคนตอบแชทจาก 3 เป็น 30 คน ค่ารายเดือนก็เท่าเดิม · ค่าใช้จ่ายจะขยับก็ต่อเมื่อคุณสั่งเพิ่มฟีเจอร์หรือช่องทางใหม่ ซึ่งเป็นการตัดสินใจของคุณเอง ไม่ใช่บิลที่โตเงียบๆ ตามขนาดทีม',
+  },
+  {
+    id: 'faq-agency',
+    question: 'รับดูแลลูกค้าหลายเจ้า / หลายแบรนด์ได้ไหม?',
+    answer:
+      'ได้ครับ ระบบออกแบบเป็น multi-tenant มาตั้งแต่วันแรก — แต่ละแบรนด์หรือลูกค้าแยกเป็น workspace ของตัวเอง ข้อมูล บทสนทนา ช่องทาง และทีมงานไม่ปนกัน แต่รันอยู่บน deployment เดียว · เอเจนซี่จึงรับลูกค้าเพิ่มได้โดยไม่ต้องซื้อ subscription ใหม่ต่อราย และยังเลือกเปิด/ปิดฟีเจอร์ให้แต่ละ workspace ต่างกันได้ตามแพ็กเกจที่ลูกค้าแต่ละเจ้าจ่าย',
   },
   {
     id: 'faq-2',
@@ -169,22 +182,22 @@ export function HomeView() {
         <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-8 animate-fade-in-up">
-            <span>💬</span>
-            <span>Omni-Channel Chat Platform</span>
+            <span>🏢</span>
+            <span>สำหรับเอเจนซี่ · ธุรกิจหลายแบรนด์ · ทีมซัพพอร์ต</span>
           </div>
 
           {/* Heading */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6 animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-            สร้างใบเสนอราคา
+            เพิ่มทีมตอบแชทกี่คน
             <br />
-            <span className="text-gradient">ระบบแชทรวมทุกช่องทาง</span>
+            <span className="text-gradient">ราคาก็เท่าเดิม</span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-lg sm:text-xl text-muted max-w-2xl mx-auto mb-10 animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
-            เลือกช่องทาง ฟีเจอร์ และ<strong>ทีมที่จะทำให้</strong> — ระบบคำนวณราคาให้ทันที
+            ระบบแชทรวมทุกช่องทางไว้จอเดียว ที่<strong>ไม่คิดค่าหัวรายเดือนต่อผู้ใช้</strong>
             <br className="hidden sm:block" />
-            งบจำกัดจ้าง solo dev + AI เริ่มต้นหลักหมื่น · องค์กรใหญ่เลือกทีมเต็มได้
+            จ่ายค่าติดตั้งครั้งเดียว + รายเดือนคงที่ · เอเจนซี่แยก workspace ต่อแบรนด์บนระบบเดียวได้
           </p>
 
           {/* CTA Buttons */}
@@ -194,14 +207,14 @@ export function HomeView() {
               className="btn-primary text-lg px-8 py-3 rounded-xl inline-flex items-center gap-2"
             >
               <span>🛠️</span>
-              <span>สร้างใบเสนอราคา</span>
+              <span>ดูราคาของคุณ</span>
             </Link>
             <Link
-              href="/about"
+              href="/contact"
               className="btn-ghost text-lg px-8 py-3 rounded-xl inline-flex items-center gap-2"
             >
-              <span>ℹ️</span>
-              <span>เรียนรู้เพิ่มเติม</span>
+              <span>📞</span>
+              <span>ขอเดโม</span>
             </Link>
           </div>
         </div>
@@ -232,7 +245,8 @@ export function HomeView() {
               ฟีเจอร์ครบ เลือกเท่าที่ใช้ จ่ายเท่าที่เลือก
             </h2>
             <p className="text-muted text-lg max-w-2xl mx-auto">
-              70+ ฟีเจอร์ใน 10 โมดูล + เลือกได้ว่าจะจ้างทีมแบบไหน — ติ๊กเลือกเอง ระบบคำนวณราคาให้อัตโนมัติ
+              70+ ฟีเจอร์ใน 10 โมดูล — ติ๊กเลือกเอง ระบบคำนวณราคาให้ทันที
+              ไม่มีแพ็กเกจบังคับซื้อของที่ไม่ได้ใช้
             </p>
           </div>
 
@@ -254,47 +268,47 @@ export function HomeView() {
         </div>
       </section>
 
-      {/* ── Testimonials Section ── */}
+      {/* ── Use Cases Section ── */}
       <section className="py-20 sm:py-24 bg-surface-alt">
         <div className="max-w-6xl mx-auto px-6">
           {/* Section Header */}
           <div className="text-center mb-14">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              ลูกค้าของเราพูดถึงเรา
+              ระบบนี้เหมาะกับใคร
             </h2>
             <p className="text-muted text-lg">
-              ความคิดเห็นจากผู้ใช้งานจริง
+              สถานการณ์ที่เจอบ่อย และสิ่งที่เปลี่ยนไปหลังใช้ระบบ
             </p>
           </div>
 
-          {/* Testimonial Cards */}
+          {/* Use Case Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((testimonial) => (
+            {USE_CASES.map((useCase) => (
               <div
-                key={testimonial.id}
-                className="glass-panel rounded-xl p-6 card-hover"
+                key={useCase.id}
+                className="glass-panel rounded-xl p-6 card-hover flex flex-col"
               >
-                {/* Stars */}
-                <div className="flex gap-1 mb-4">
-                  {Array.from({ length: testimonial.rating }).map((_, i) => (
-                    <span key={i} className="text-amber-400">⭐</span>
-                  ))}
+                <div className="text-3xl mb-4">{useCase.icon}</div>
+                <h3 className="text-lg font-semibold mb-4">{useCase.title}</h3>
+
+                {/* ปัญหาเดิม */}
+                <div className="mb-4">
+                  <div className="text-muted text-xs font-medium mb-1 uppercase tracking-wide">
+                    ปัญหาที่เจอ
+                  </div>
+                  <p className="text-muted text-sm leading-relaxed">
+                    {useCase.situation}
+                  </p>
                 </div>
 
-                {/* Content */}
-                <p className="text-foreground text-sm leading-relaxed mb-6">
-                  &quot;{testimonial.content}&quot;
-                </p>
-
-                {/* Author */}
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{testimonial.avatar}</span>
-                  <div>
-                    <div className="font-semibold text-sm">{testimonial.name}</div>
-                    <div className="text-muted text-xs">
-                      {testimonial.role} · {testimonial.company}
-                    </div>
+                {/* หลังใช้ระบบ */}
+                <div className="mt-auto pt-4 border-t border-border">
+                  <div className="text-primary text-xs font-medium mb-1 uppercase tracking-wide">
+                    หลังใช้ระบบ
                   </div>
+                  <p className="text-foreground text-sm leading-relaxed">
+                    {useCase.outcome}
+                  </p>
                 </div>
               </div>
             ))}
@@ -330,7 +344,7 @@ export function HomeView() {
                     {faq.question}
                   </span>
                   <span
-                    className={`text-muted transition-transform duration-300 flex-shrink-0 ${
+                    className={`text-muted transition-transform duration-300 shrink-0 ${
                       openFaqId === faq.id ? 'rotate-180' : ''
                     }`}
                   >
@@ -354,18 +368,27 @@ export function HomeView() {
       <section className="py-20 sm:py-24 bg-surface-alt">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-            พร้อมเริ่มต้นแล้วหรือยัง?
+            อยากรู้ว่าระบบของคุณราคาเท่าไหร่?
           </h2>
           <p className="text-muted text-lg mb-8">
-            ประเมินราคาระบบแชทของคุณเองได้ฟรี ใช้เวลาไม่ถึง 5 นาที
+            ติ๊กเลือกช่องทางและฟีเจอร์ที่ต้องการ เห็นราคาทันที ไม่ต้องกรอกอีเมล ไม่ต้องรอเซลล์ติดต่อกลับ
           </p>
-          <Link
-            href="/builder"
-            className="btn-primary text-lg px-10 py-4 rounded-xl inline-flex items-center gap-2"
-          >
-            <span>🚀</span>
-            <span>เริ่มสร้างใบเสนอราคาเลย</span>
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/builder"
+              className="btn-primary text-lg px-10 py-4 rounded-xl inline-flex items-center gap-2"
+            >
+              <span>🚀</span>
+              <span>ดูราคาของคุณ</span>
+            </Link>
+            <Link
+              href="/contact"
+              className="btn-ghost text-lg px-10 py-4 rounded-xl inline-flex items-center gap-2"
+            >
+              <span>📞</span>
+              <span>คุยกับทีมงาน</span>
+            </Link>
+          </div>
         </div>
       </section>
     </div>

@@ -44,7 +44,7 @@ export function MainHeader() {
 
   const navLinks = [
     { href: '/', label: 'หน้าแรก', icon: '🏠' },
-    { href: '/builder', label: 'สร้างใบเสนอราคา', icon: '🛠️' },
+    { href: '/builder', label: 'ดูราคา', icon: '🛠️' },
     { href: '/about', label: 'เกี่ยวกับเรา', icon: 'ℹ️' },
   ];
 
@@ -90,13 +90,13 @@ export function MainHeader() {
         {/* Actions */}
         <div className="app-header-actions">
           <ThemeToggle />
-          <Link 
-            href="/builder" 
-            className="hidden lg:flex px-6 py-2.5 rounded-full bg-primary text-white font-bold 
-              hover:bg-primary-dark transition-all duration-300 shadow-lg shadow-primary/20 
+          <Link
+            href="/contact"
+            className="hidden lg:flex px-6 py-2.5 rounded-full bg-primary text-white font-bold
+              hover:bg-primary-dark transition-all duration-300 shadow-lg shadow-primary/20
               scale-100 hover:scale-105 active:scale-95"
           >
-            เริ่มต้นใช้งาน
+            ขอเดโม
           </Link>
           
           {/* Mobile Menu Button */}
@@ -136,11 +136,11 @@ export function MainHeader() {
             </Link>
           ))}
           <Link
-            href="/builder"
+            href="/contact"
             onClick={() => setMobileMenuOpen(false)}
             className="flex items-center justify-center py-4 rounded-2xl bg-primary text-white font-bold shadow-lg shadow-primary/20"
           >
-            เริ่มต้นใช้งาน
+            ขอเดโม
           </Link>
         </animated.div>
       )}
