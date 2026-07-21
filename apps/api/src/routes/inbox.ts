@@ -25,11 +25,24 @@ const replyBodySchema = z.object({ text: z.string().min(1) });
  *   GET  /inbox/conversations                          → list ใน workspace ของ agent
  *   GET  /inbox/conversations/:conversationId/messages → history ของสาย (scope workspace)
  *   POST /inbox/conversations/:conversationId/reply    → agent ตอบ (sender = agent จริง)
+ *   GET  /inbox/entitlements                            → โมดูลที่ workspace ซื้อไว้ (Phase 6)
  *   GET  /inbox/ws?token=...                            → WS realtime (register ตาม workspaceId)
  * ⚠️ workspaceId มาจาก token เท่านั้น (ไม่รับจาก client) — กัน cross-tenant
  */
 export function registerInboxRoutes(app: FastifyInstance, deps: AppDeps): void {
   const { auth, session, inboxRead, conversations, sendOutbound, agentRegistry } = deps;
+
+  /**
+   * สิทธิ์ของ workspace ตัวเอง — UI เอาไปซ่อนเมนูที่ไม่ได้ซื้อ (UX เท่านั้น ไม่ใช่ security · ADR-0007 ข้อ 4)
+   * การบังคับสิทธิ์จริงอยู่ที่ route/service ของแต่ละโมดูล — ซ่อนเมนูแล้วยิง API ตรงต้องยังโดนปฏิเสธ
+   * ไม่มี row = คืน `[]` (fail-closed) ไม่ใช่ 404 — client แยกไม่ออกว่า "ยังไม่ตั้งค่า" กับ "ไม่ได้ซื้อ" ก็ไม่ต่างกัน
+   */
+  app.get('/inbox/entitlements', async (req, reply) => {
+    const ctx = authFromRequest(req, auth, session.cookieName);
+    if (!ctx) return reply.code(401).send({ error: 'unauthorized' });
+    const entitlements = await deps.entitlements.get(ctx.workspaceId);
+    return reply.send({ modules: entitlements?.modules ?? [] });
+  });
 
   app.get<{ Querystring: { limit?: string; before?: string } }>(
     '/inbox/conversations',

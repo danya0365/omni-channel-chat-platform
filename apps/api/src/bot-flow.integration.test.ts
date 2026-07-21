@@ -10,10 +10,11 @@ import {
   outboxCursors,
   runMigrations,
   workspaceBotConfig,
+  workspaceEntitlements,
   workspaces,
 } from '@omni/db';
 import type { DbHandle } from '@omni/db';
-import type { Assignee } from '@omni/domain';
+import type { Assignee, EntitlementModule } from '@omni/domain';
 import type { AnthropicFetch } from '@omni/bot-anthropic';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from './app';
@@ -83,9 +84,13 @@ afterEach(async () => {
   await container.close();
 });
 
-/** seed workspace + web channel + เปิด bot + demo rules (คืน id ที่ใช้ยิง endpoint) */
+/**
+ * seed workspace + web channel + เปิด bot + demo rules (คืน id ที่ใช้ยิง endpoint)
+ * `modules` = โมดูลที่ workspace **ซื้อไว้** (Phase 6) · null = ไม่มี row เลย (ไม่ได้ซื้ออะไร)
+ */
 async function seedBotWorkspace(
   aiEnabled = false,
+  modules: EntitlementModule[] | null = ['bot', 'ai'],
 ): Promise<{ workspaceId: string; channelId: string }> {
   const gen = createIdGenerator();
   const workspaceId = gen('ws');
@@ -94,6 +99,9 @@ async function seedBotWorkspace(
   await seedHandle.db
     .insert(channels)
     .values({ id: channelId, workspaceId, type: 'web', displayName: 'Web bot e2e' });
+  if (modules) {
+    await seedHandle.db.insert(workspaceEntitlements).values({ workspaceId, modules });
+  }
   await seedHandle.db
     .insert(workspaceBotConfig)
     .values({ workspaceId, botEnabled: true, aiEnabled });
@@ -274,5 +282,62 @@ describe('bot automation e2e (integration — ต้อง pnpm db:up)', () => {
       (rows) => (rows[0]?.assignee as Assignee | null)?.kind === 'bot',
     );
     expect(conv?.assignee).toEqual({ kind: 'bot' });
+  });
+
+  // ── Phase 6: entitlement บังคับที่ server จริง (ADR-0007) ──
+
+  it('bot config เปิด แต่ไม่ได้ซื้อโมดูล bot → ไม่ตอบ (fail-closed ทะลุ pipeline จริง)', async () => {
+    const { workspaceId, channelId } = await seedBotWorkspace(false, null); // ไม่มี entitlement row
+
+    const sessionRes = await fetch(`${baseUrl}/channels/web/${channelId}/sessions`, {
+      method: 'POST',
+    });
+    const { sessionId } = (await sessionRes.json()) as { sessionId: string };
+    await postJson(`/channels/web/${channelId}/messages`, { sessionId, text: 'สวัสดีครับ' });
+
+    // rule "สวัสดี" match และ botEnabled=true — ถ้า gate ไม่ทำงาน bot จะตอบ canned
+    await new Promise((r) => setTimeout(r, 300));
+    const rows = await msgRows(workspaceId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.direction).toBe('inbound');
+  });
+
+  it('ซื้อ bot แต่ไม่ซื้อ ai (aiEnabled=true) → escalate แทน โดยไม่ยิง Anthropic เลย', async () => {
+    const { workspaceId, channelId } = await seedBotWorkspace(true, ['bot']); // ไม่มี 'ai'
+    let aiCalled = false;
+    anthropicFetchImpl = async () => {
+      aiCalled = true;
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          content: [{ type: 'text', text: 'ไม่ควรถูกเรียก' }],
+          stop_reason: 'end_turn',
+        }),
+      };
+    };
+
+    const sessionRes = await fetch(`${baseUrl}/channels/web/${channelId}/sessions`, {
+      method: 'POST',
+    });
+    const { sessionId } = (await sessionRes.json()) as { sessionId: string };
+    const inbound = await postJson<{ conversationId: string }>(
+      `/channels/web/${channelId}/messages`,
+      { sessionId, text: 'ร้านเปิดกี่โมงคะ' }, // ไม่ match rule → no_match
+    );
+
+    // ได้ notice escalate (ข้อความ static) ไม่ใช่คำตอบจาก AI
+    const after = await waitForRows(
+      () => msgRows(workspaceId),
+      (rows) => rows.some((r) => r.direction === 'outbound'),
+    );
+    const outbound = after.find((r) => r.direction === 'outbound');
+    expect(outbound?.content).toMatchObject({ type: 'text' });
+    expect((outbound?.content as { text: string }).text).not.toBe('ไม่ควรถูกเรียก');
+    expect(aiCalled).toBe(false); // ไม่ได้ซื้อ = ไม่ยิง API (ไม่เสียเงินเราด้วย)
+
+    // escalate → assignee = null (เข้า queue รอ human)
+    const [conv] = await convRow(inbound.json.conversationId);
+    expect(conv?.assignee).toBeNull();
   });
 });

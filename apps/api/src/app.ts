@@ -4,6 +4,7 @@ import fastifyCors from '@fastify/cors';
 import fastifyCookie from '@fastify/cookie';
 import type { AppDeps } from './deps';
 import { registerAuthRoutes } from './routes/auth';
+import { registerBotAdminRoutes } from './routes/bot-admin';
 import { registerInboxRoutes } from './routes/inbox';
 import { registerLineRoutes } from './routes/line';
 import { registerWebRoutes } from './routes/web';
@@ -31,6 +32,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   registerAuthRoutes(app, deps);
   registerInboxRoutes(app, deps);
+  registerBotAdminRoutes(app, deps); // จอจัดการ bot (Phase 6) — gate ด้วย entitlement 'bot'
   registerWebRoutes(app, deps);
   registerLineRoutes(app, deps);
 

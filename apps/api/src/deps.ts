@@ -4,8 +4,10 @@ import type {
   ConversationId,
   ConversationRepository,
   InboxReadRepository,
+  ManageBotRules,
   ManageConversation,
   SendOutboundMessage,
+  WorkspaceEntitlementsRepository,
   WorkspaceId,
   createIngestInboundMessage,
 } from '@omni/domain';
@@ -48,6 +50,13 @@ export interface AppDeps {
   conversations: ConversationRepository;
   /** assign/unassign/close/reopen conversation (Phase 4 routing) */
   manageConversation: ManageConversation;
+  /**
+   * โมดูลที่ workspace ซื้อไว้ (Phase 6 · ADR-0007) — **server เป็นเจ้าของสิทธิ์** UI แค่ซ่อนเมนู
+   * ไม่มี row = ไม่มีสิทธิ์เลย (fail-closed) · เช็คด้วย `hasEntitlement` จาก @omni/domain
+   */
+  entitlements: WorkspaceEntitlementsRepository;
+  /** จอจัดการ bot ของ workspace (Phase 6) — CRUD rules + สวิตช์ bot/AI · route gate ด้วยโมดูล `bot` */
+  manageBotRules: ManageBotRules;
   /** auth ของ agent (login + verify token) — Phase 3 */
   auth: AuthService;
   /** ตั้งค่า session cookie + CSRF Origin allowlist — auth transport = httpOnly cookie (ADR-0005) */

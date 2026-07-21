@@ -1,6 +1,14 @@
 import { z } from 'zod';
 import { idSchema } from './ids';
-import type { WorkspaceId, ChannelId, ContactId, ConversationId, MessageId, AgentId } from './ids';
+import type {
+  WorkspaceId,
+  ChannelId,
+  ContactId,
+  ConversationId,
+  MessageId,
+  AgentId,
+  BotRuleId,
+} from './ids';
 import type { Result } from './result';
 import type { Agent } from './schema/agent';
 import type { Channel } from './schema/channel';
@@ -127,7 +135,20 @@ export interface AgentRepository {
  */
 export interface BotRuleRepository {
   listEnabled(workspaceId: WorkspaceId, channelId: ChannelId): Promise<BotRule[]>;
+  /** (Phase 6 admin) rule ทั้งหมดของ workspace รวมที่ปิดอยู่ — เรียง priority · จอจัดการต้องเห็นของที่ปิดด้วย */
+  listAll(workspaceId: WorkspaceId): Promise<BotRule[]>;
+  findById(workspaceId: WorkspaceId, ruleId: BotRuleId): Promise<BotRule | null>;
+  insert(rule: BotRule): Promise<void>;
+  /** อัปเดตเฉพาะ field ที่ส่งมา · คืน rule หลังแก้ · null = ไม่มี rule นี้ใน workspace */
+  update(workspaceId: WorkspaceId, ruleId: BotRuleId, patch: BotRulePatch): Promise<BotRule | null>;
+  /** คืน true ถ้าลบจริง (false = ไม่มี rule นี้ใน workspace) */
+  remove(workspaceId: WorkspaceId, ruleId: BotRuleId): Promise<boolean>;
 }
+
+/** field ที่แก้ได้ของ rule — id/workspaceId/createdAt แก้ไม่ได้ (identity) */
+export type BotRulePatch = Partial<
+  Pick<BotRule, 'channelId' | 'matchType' | 'pattern' | 'action' | 'enabled' | 'priority'>
+>;
 
 /**
  * WorkspaceBotConfigRepository — สวิตช์ automation ต่อ workspace (Phase 5)
@@ -135,6 +156,8 @@ export interface BotRuleRepository {
  */
 export interface WorkspaceBotConfigRepository {
   get(workspaceId: WorkspaceId): Promise<WorkspaceBotConfig | null>;
+  /** (Phase 6 admin) ตั้งสวิตช์ — ไม่มี row = สร้างใหม่ · คืนค่าหลังบันทึก */
+  upsert(config: WorkspaceBotConfig): Promise<WorkspaceBotConfig>;
 }
 
 /**

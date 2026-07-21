@@ -7,8 +7,11 @@ import {
   loadEncryptionKey,
   runMigrations,
   workspaceBotConfig,
+  workspaceEntitlements,
   workspaces,
 } from '@omni/db';
+import type { DbHandle } from '@omni/db';
+import { entitlementModuleSchema } from '@omni/domain';
 import { hashPassword } from './auth/password';
 import { DEV_CHANNEL_ENCRYPTION_KEY } from './wiring';
 
@@ -30,6 +33,22 @@ const DEMO_AGENT_PASSWORD = 'demo1234';
 const DEMO_LINE_CHANNEL_ID = 'chn_line_demo';
 const DEMO_LINE_CHANNEL_SECRET = 'line-dev-channel-secret';
 const DEMO_LINE_ACCESS_TOKEN = 'line-dev-access-token-placeholder';
+
+/**
+ * เปิดทุกโมดูลให้ workspace demo — **dev เท่านั้น** (prod ตั้งตามที่ลูกค้าซื้อจริง)
+ * ใช้ `entitlementModuleSchema.options` ไม่ hardcode list → เพิ่มโมดูลใหม่ใน union แล้ว dev ได้ทันที
+ * upsert (ไม่ใช่ doNothing) เพราะ re-seed หลังเพิ่มโมดูลใหม่ต้องได้ครบ ไม่ใช่ค้างชุดเก่า
+ */
+async function seedDemoEntitlements(db: DbHandle['db']): Promise<void> {
+  const modules = [...entitlementModuleSchema.options];
+  await db
+    .insert(workspaceEntitlements)
+    .values({ workspaceId: DEMO_WORKSPACE_ID, modules })
+    .onConflictDoUpdate({
+      target: workspaceEntitlements.workspaceId,
+      set: { modules, updatedAt: new Date() },
+    });
+}
 
 async function main(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL ?? DEV_DATABASE_URL;
@@ -77,6 +96,9 @@ async function main(): Promise<void> {
         displayName: 'ทีมงาน Demo',
       })
       .onConflictDoNothing();
+
+    // Phase 6 entitlement — dev เปิดครบทุกโมดูล (ไม่งั้นเจอฟีเจอร์หายแล้วงงว่าพัง · ADR-0007)
+    await seedDemoEntitlements(handle.db);
 
     // Phase 5 bot — เปิด automation ให้ ws_demo (aiEnabled=false · AI ค่อยเปิดตอน 5B ต่อ ANTHROPIC_API_KEY)
     await handle.db

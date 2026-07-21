@@ -9,3 +9,4 @@ export * from './message-repository';
 export * from './outbox';
 export * from './web-route-resolver';
 export * from './workspace-bot-config-repository';
+export * from './workspace-entitlements-repository';

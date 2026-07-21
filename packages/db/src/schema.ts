@@ -10,7 +10,13 @@ import {
   timestamp,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
-import type { Assignee, BotRuleAction, MessageContent, MessageSender } from '@omni/domain';
+import type {
+  Assignee,
+  BotRuleAction,
+  EntitlementModule,
+  MessageContent,
+  MessageSender,
+} from '@omni/domain';
 
 /**
  * Drizzle schema = source of truth ของ DB (migration generate จากไฟล์นี้)
@@ -261,6 +267,26 @@ export const workspaceBotConfig = pgTable('workspace_bot_config', {
     .references(() => workspaces.id, { onDelete: 'cascade' }),
   botEnabled: boolean('bot_enabled').notNull().default(false),
   aiEnabled: boolean('ai_enabled').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * WorkspaceEntitlements (Phase 6) — โมดูลที่ workspace นี้ "ซื้อไว้" (1:1 กับ workspace, workspaceId เป็น PK)
+ *
+ * เก็บเป็น **jsonb array ของ module id** ไม่ใช่คอลัมน์ boolean ต่อโมดูล → เพิ่มโมดูลใหม่ไม่ต้อง migration
+ * ⚠️ **ไม่มี row = ไม่มีสิทธิ์อะไรเลย** (fail-closed) · default `[]` สำหรับ row ที่สร้างแล้วยังไม่ซื้ออะไร
+ * ⚠️ additive — ไม่แทนที่ `workspace_bot_config`: สิทธิ์ (ซื้อไหม) กับสวิตช์ใช้งาน (เปิดไหม) คนละเรื่อง
+ * ดู ADR-0007
+ */
+export const workspaceEntitlements = pgTable('workspace_entitlements', {
+  workspaceId: text('workspace_id')
+    .primaryKey()
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
+  modules: jsonb('modules')
+    .$type<EntitlementModule[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

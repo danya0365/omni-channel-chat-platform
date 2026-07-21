@@ -20,5 +20,21 @@ export function createWorkspaceBotConfigRepository(db: Executor): WorkspaceBotCo
       const row = rows[0];
       return row ? workspaceBotConfigSchema.parse(row) : null;
     },
+
+    upsert: async (config) => {
+      const [row] = await db
+        .insert(workspaceBotConfig)
+        .values(config)
+        .onConflictDoUpdate({
+          target: workspaceBotConfig.workspaceId,
+          set: {
+            botEnabled: config.botEnabled,
+            aiEnabled: config.aiEnabled,
+            updatedAt: new Date(),
+          },
+        })
+        .returning();
+      return workspaceBotConfigSchema.parse(row);
+    },
   };
 }
