@@ -8,7 +8,7 @@ metadata:
   scope: global
   updated: 2026-07-21
   originSessionId: 3be9577c-b819-462f-a61d-267f34fc9eb5
-  modified: 2026-07-21T04:45:44.309Z
+  modified: 2026-07-21T05:18:03.983Z
 ---
 
 # Handoff — Phase 6: Entitlements (เปิดฟีเจอร์ต่อ tenant)
@@ -16,7 +16,7 @@ metadata:
 > อ่านคู่: [[product-direction-per-tenant]] (แนวทางหลัก) + [[adr-0007-phase-6-entitlements]] (การตัดสินใจ)
 > Phase 5 ค้างที่ PR-ready ยังไม่ merge — ดู [[phase-5-progress]]
 
-## สถานะ (2026-07-21) — Increment 1-2 commit แล้ว · **Increment 3 เขียวแต่ยังไม่ commit**
+## สถานะ (2026-07-21) — Increment 1-3 commit+push แล้ว · **Increment 4 (bot admin UI) เขียวแต่ยังไม่ commit**
 
 - 🌿 **branch `feature/phase-6-entitlements`** (แตกจาก `feature/phase-5-bot-automation` @ `73a9525`)
 - ✅ **Phase 5 ปิดแล้ว** — `origin/main` มี PR #8 (Phase 5) + PR #9 (Phase 6 inc.1) merge แล้ว ·
@@ -73,12 +73,36 @@ metadata:
 - **verify จริง** (DoD ข้อ 3): `seed:dev` รันจริง → ws_demo ได้ 8 โมดูลใน DB · start api :3099 →
   `GET /inbox/entitlements` ไม่ auth = **401** · login แล้ว = **200 + 8 โมดูล**
 
+## ✅ Increment 4 — Bot admin UI (ฟีเจอร์แรกที่ gate ด้วย entitlement จริง) — ยังไม่ commit
+
+> พี่เคาะ: แผนเดิม "ซ่อนเมนูที่ไม่ได้ซื้อ" **ไม่มีอะไรให้ซ่อนจริง** (sidebar มีแต่ของ core) →
+> เปลี่ยนเป็นทำ **จอจัดการบอท** ซึ่งได้ทั้ง route guard ของจริง + เมนูที่ซ่อนจริง + ปิด follow-up Phase 5 (admin UI)
+
+- **4a domain** `services/manage-bot-rules.ts` — `createManageBotRules` (list/create/update/remove +
+  getConfig/setConfig) · verify channel เป็นของ workspace (กันผูก rule ข้าม tenant) · **10 unit** ·
+  ports: `BotRuleRepository` +listAll/findById/insert/update/remove + `BotRulePatch` · `WorkspaceBotConfigRepository.upsert`
+- **4a db** — repo CRUD (`byId` helper บังคับ scope workspace ทุก op) + config upsert · **5 integration**
+  (ครบวง CRUD · ไม่รั่วข้าม tenant · channel ข้าม workspace · upsert ไม่ duplicate · cascade)
+- **4b api** `routes/bot-admin.ts` — `GET/PUT /inbox/bot/config` · `GET/POST /inbox/bot/rules` ·
+  `PATCH/DELETE /inbox/bot/rules/:ruleId` · **ทุก route ผ่าน `requireEntitlement(...'bot')`**
+  (`routes/entitlement-guard.ts`: 401 auth → 403 origin → 403 `entitlement_required`) · **10 route test**
+- **4c inbox UI** — `use-entitlements` (โหลดตอน WS connect · default ว่าง = ซ่อนไว้ก่อน) ·
+  `use-bot-admin` (โหลดตอนเปิดจอ = interaction-driven) · `lib/bot-view.ts` pure +**5 unit** ·
+  components `bot/{bot-panel,bot-rule-form,bot-rule-row,bot-switches}` (แยกไฟล์กัน God component) ·
+  sidebar โชว์ปุ่ม "ตั้งค่าบอท" **เฉพาะเมื่อ `has('bot')`** · สวิตช์ AI disabled ถ้าไม่ได้ซื้อ `ai`
+- **verify**: gate **260 unit** · integration **54** · **e2e browser 3/3** (เพิ่มเคส bot admin: เปิดจอ →
+  สลับสวิตช์ → เพิ่ม/ปิด/ลบกติกา ผ่าน API จริง)
+
+### 🐞 บทเรียน: seed เปิด bot ทำให้ e2e เดิมพัง (มาก่อน Phase 6)
+
+`seed-dev` เปิด `botEnabled=true` ตั้งแต่ Phase 5 → bot escalate สายที่ไม่ match rule แล้ว **ส่ง notice**
+→ `lastMessage` ของสายกลายเป็นข้อความบอท → e2e เดิมที่หา row ด้วยข้อความลูกค้า **หาไม่เจอ (พังทั้ง 2 เคส)**
+· แก้ที่ e2e: `beforeEach` ปิดบอทผ่าน `PUT /inbox/bot/config` (endpoint ใหม่ของ Phase 6 เอง) แล้วเทสต์บอทเปิด/ปิดเอง
+
 ## ถัดไป (ยังไม่เริ่ม)
 
-- **Increment 4 — UI**: `apps/inbox` เรียก `GET /inbox/entitlements` แล้วซ่อนเมนูที่ไม่ได้ซื้อ (UX ไม่ใช่ security)
-- ยังไม่มี **route guard** (`requireEntitlement` preHandler) — **ตั้งใจ**: ตอนนี้ยังไม่มี endpoint ที่ขายแยกจริง
-  (inbox/routing ปัจจุบัน = core · ช่องทางแชท gate ด้วยข้อมูล) → สร้างตอนมีฟีเจอร์แรกที่ต้องใช้ ไม่สร้าง dead code ทิ้งไว้
-- admin UI แก้ entitlement ต่อ workspace (ตอนนี้ต้อง update row เอง)
+- admin UI แก้ **entitlement** ต่อ workspace (ตอนนี้ต้อง UPDATE row เอง) — ติดที่ `agents` ยังไม่มี role/owner
+- ฟีเจอร์ถัดไปที่ขายแยก = เขียนแล้วผูก 1 โมดูล + ครอบด้วย `requireEntitlement` (pattern พร้อมแล้ว)
 
 ## Gotchas
 

@@ -37,7 +37,7 @@
 
 ## Working Log
 
-- [Phase 6 Progress](log/phase-6-progress.md) — **🔨 กำลังทำ · branch `feature/phase-6-entitlements`** — entitlement (เปิดฟีเจอร์ต่อ tenant) · **Increment 1-2 commit แล้ว · 3 (บังคับใช้ที่ server + `GET /inbox/entitlements` + seed) เขียวแต่ยังไม่ commit** (gate 235 + integration 49 + verify server จริง) · เหลือ **4 UI ซ่อนเมนู**
+- [Phase 6 Progress](log/phase-6-progress.md) — **🔨 กำลังทำ · branch `feature/phase-6-entitlements`** — entitlement (เปิดฟีเจอร์ต่อ tenant) · **Increment 1-3 commit+push แล้ว · 4 (จอจัดการบอท = ฟีเจอร์แรกที่ gate ด้วย `requireEntitlement('bot')` + เมนูซ่อนจริง) เขียวแต่ยังไม่ commit** (gate 260 + integration 54 + e2e browser 3/3)
 - [Phase 5 Progress](log/phase-5-progress.md) — **✅ ปิดแล้ว · merged เข้า main (PR #8)** — bot/automation (rule) + AI reply fallback (Claude Opus 4.8) · follow-up ที่ยังค้าง: verify ยิง Anthropic จริง 1 ครั้ง / hardening (AI timeout, outbox retention) / admin UI จัดการ rules
 - [Phase 4 Progress](log/phase-4-progress.md) — **done · merged เข้า main (PR #2–#6)** — Phase 4 (routing + LINE) + hardening (dedup/tx-split/retry) + tech debt B (failed-status realtime, LINE profile name, auth httpOnly cookie [[adr-0005-auth-transport-httponly-cookie]]) · verify ครบ (gate+integration 34+e2e browser) · ถือ deferred tech debt list
 
