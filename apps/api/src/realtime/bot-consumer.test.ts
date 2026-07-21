@@ -6,6 +6,7 @@ import type {
   BotRule,
   Conversation,
   ConversationRef,
+  EntitlementModule,
   Message,
   MessageContent,
   SendOutboundCommand,
@@ -88,14 +89,19 @@ function setup(opts: {
   message?: Message | null;
   rules?: BotRule[];
   aiReply?: BotAiReplier;
+  /** โมดูลที่ workspace ซื้อไว้ (Phase 6) — undefined = ซื้อครบ · null = ไม่มี row (ไม่มีสิทธิ์เลย) */
+  modules?: EntitlementModule[] | null;
 }) {
   const rec: Recorder = { assignBot: [], escalate: [], sent: [] };
   const conv = opts.conversation === undefined ? conversation(null) : opts.conversation;
   const botEnabled = opts.botEnabled ?? true;
+  const modules =
+    opts.modules === undefined ? (['bot', 'ai'] as EntitlementModule[]) : opts.modules;
   const drainBot = createBotConsumer({
     claimBatch: async () => opts.rows ?? [inboundRow()],
     getBotConfig: async () =>
       botEnabled ? { workspaceId: WS, botEnabled, aiEnabled: opts.aiEnabled ?? false } : null,
+    getEntitlements: async () => (modules === null ? null : { workspaceId: WS, modules }),
     listRules: async () => opts.rules ?? [],
     getConversation: async () => conv,
     getMessage: async () => (opts.message === undefined ? inboundMessage('สวัสดี') : opts.message),
@@ -323,5 +329,79 @@ describe('createBotConsumer (rule-only · Phase 5)', () => {
     expect(await drainBot()).toBe(1);
     expect(called).toBe(false); // aiDisabled → ไม่แตะ AI (ประหยัด cost)
     expect(rec.escalate).toHaveLength(1);
+  });
+
+  // ── Phase 6: entitlement gate (ซื้อโมดูลไหม) — คนละชั้นกับ bot config (เปิดใช้ไหม) · ADR-0007 ──
+
+  it('ไม่มี entitlement row เลย → เงียบ แม้ botEnabled=true (fail-closed)', async () => {
+    const { drainBot, rec } = setup({
+      modules: null, // ไม่เคยซื้ออะไร
+      conversation: conversation(null),
+      message: inboundMessage('สวัสดีครับ'),
+      rules: [replyRule('สวัสดี', 'hi')],
+    });
+    expect(await drainBot()).toBe(0);
+    expect(rec.sent).toHaveLength(0);
+    expect(rec.assignBot).toHaveLength(0);
+    expect(rec.escalate).toHaveLength(0);
+  });
+
+  it('ซื้อโมดูลอื่นแต่ไม่ซื้อ bot → เงียบ (สิทธิ์ไม่ใช่แค่ "มี row")', async () => {
+    const { drainBot, rec } = setup({
+      modules: ['reports', 'crm_advanced'],
+      message: inboundMessage('สวัสดีครับ'),
+      rules: [replyRule('สวัสดี', 'hi')],
+    });
+    expect(await drainBot()).toBe(0);
+    expect(rec.sent).toHaveLength(0);
+  });
+
+  it('ซื้อ bot → ทำงานปกติ (rule reply)', async () => {
+    const { drainBot, rec } = setup({
+      modules: ['bot'],
+      conversation: conversation(null),
+      message: inboundMessage('สวัสดีครับ'),
+      rules: [replyRule('สวัสดี', 'สวัสดีครับ ยินดีต้อนรับ')],
+    });
+    expect(await drainBot()).toBe(1);
+    expect(rec.assignBot).toEqual([{ workspaceId: WS, conversationId: CONV }]);
+    expect(rec.sent[0]).toMatchObject({ content: { text: 'สวัสดีครับ ยินดีต้อนรับ' } });
+  });
+
+  it('ซื้อ bot แต่ไม่ซื้อ ai + aiEnabled=true → no_match แล้ว escalate (ไม่แตะ AI)', async () => {
+    let called = false;
+    const spyAi: BotAiReplier = {
+      reply: async () => {
+        called = true;
+        return ok({ kind: 'reply', text: 'ไม่ควรถูกเรียก' });
+      },
+    };
+    const { drainBot, rec } = setup({
+      modules: ['bot'], // ซื้อ bot อย่างเดียว
+      aiEnabled: true, // เปิดสวิตช์ไว้ แต่ไม่ได้ซื้อสิทธิ์
+      rows: [inboundRow({ conversationCreated: false })],
+      conversation: conversation({ kind: 'bot' }),
+      message: inboundMessage('ร้านเปิดกี่โมง'),
+      rules: [],
+      aiReply: spyAi,
+    });
+    expect(await drainBot()).toBe(1);
+    expect(called).toBe(false); // ไม่ซื้อ = ไม่ยิง API (ไม่เสียเงินเราด้วย)
+    expect(rec.escalate).toHaveLength(1);
+    expect(rec.sent).toHaveLength(1); // notice แจ้งลูกค้า
+  });
+
+  it('ซื้อ bot+ai + aiEnabled → ถาม AI ได้ตามปกติ', async () => {
+    const { drainBot, rec } = setup({
+      modules: ['bot', 'ai'],
+      aiEnabled: true,
+      conversation: conversation(null),
+      message: inboundMessage('ร้านเปิดกี่โมง'),
+      rules: [],
+      aiReply: aiReplier({ kind: 'reply', text: 'เปิด 9 โมงครับ' }),
+    });
+    expect(await drainBot()).toBe(1);
+    expect(rec.sent[0]).toMatchObject({ content: { text: 'เปิด 9 โมงครับ' } });
+    expect(rec.escalate).toHaveLength(0);
   });
 });

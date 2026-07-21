@@ -176,6 +176,11 @@ function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     inboxRead,
     conversations: conversationsRepo,
     manageConversation,
+    // entitlement ปลอม (Phase 6) — ws_1 ซื้อ bot+reports · workspace อื่น = ไม่มี row (fail-closed)
+    entitlements: {
+      get: async (workspaceId) =>
+        workspaceId === 'ws_1' ? { workspaceId, modules: ['bot', 'reports'] } : null,
+    },
     auth,
     session: { cookieName: 'session', secure: false, maxAgeSec: 3600, allowedOrigins: [] },
     newSessionId: () => 'web_test_session',
@@ -394,6 +399,26 @@ describe('inbox routes (authed)', () => {
       status: 'open',
       lastMessage: { direction: 'inbound', content: { type: 'text', text: 'สวัสดี' } },
     });
+  });
+
+  it('GET /inbox/entitlements ไม่มี token → 401 (สิทธิ์ไม่เปิดให้คนนอกอ่าน)', async () => {
+    app = await buildApp(makeDeps());
+    const res = await app.inject({ method: 'GET', url: '/inbox/entitlements' });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('GET /inbox/entitlements authed → 200 + modules ที่ workspace ซื้อไว้', async () => {
+    app = await buildApp(makeDeps());
+    const res = await app.inject({ method: 'GET', url: '/inbox/entitlements', headers: BEARER });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ modules: ['bot', 'reports'] });
+  });
+
+  it('GET /inbox/entitlements: workspace ที่ไม่มี row → 200 + [] (fail-closed ไม่ใช่ 404)', async () => {
+    app = await buildApp(makeDeps({ entitlements: { get: async () => null } }));
+    const res = await app.inject({ method: 'GET', url: '/inbox/entitlements', headers: BEARER });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ modules: [] });
   });
 
   it('GET /inbox/conversations/:id/messages authed → 200 + messages (ISO date)', async () => {

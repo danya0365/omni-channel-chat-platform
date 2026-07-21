@@ -1,4 +1,4 @@
-import { applyBotRules } from '@omni/domain';
+import { applyBotRules, hasEntitlement } from '@omni/domain';
 import type {
   Assignee,
   BotAiReplier,
@@ -14,6 +14,7 @@ import type {
   MessageId,
   SendOutboundMessage,
   WorkspaceBotConfig,
+  WorkspaceEntitlements,
   WorkspaceId,
 } from '@omni/domain';
 import type { OutboxRow } from '@omni/db';
@@ -32,6 +33,11 @@ export interface BotConsumerDeps {
   claimBatch(limit: number): Promise<OutboxRow[]>;
   /** config automation ของ workspace (null = bot ปิด) — botEnabled/aiEnabled */
   getBotConfig(workspaceId: WorkspaceId): Promise<WorkspaceBotConfig | null>;
+  /**
+   * โมดูลที่ workspace **ซื้อไว้** (Phase 6 · null = ไม่มีสิทธิ์เลย · fail-closed)
+   * แยกจาก `getBotConfig` โดยตั้งใจ: entitlement = "ซื้อไหม" · bot config = "เปิดใช้ไหม" (ADR-0007 ข้อ 5)
+   */
+  getEntitlements(workspaceId: WorkspaceId): Promise<WorkspaceEntitlements | null>;
   /** rules ที่ enabled ของ workspace+channel (รวม global) เรียง priority */
   listRules(workspaceId: WorkspaceId, channelId: ChannelId): Promise<BotRule[]>;
   /** อ่าน conversation (assignee) — ใช้ตัดสิน ownership */
@@ -159,8 +165,12 @@ export function createBotConsumer(deps: BotConsumerDeps) {
   async function handleInbound(payload: Record<string, unknown>): Promise<boolean> {
     const ref = parseInbound(payload);
     if (!ref) return false;
-    const config = await deps.getBotConfig(ref.ws);
-    if (!config?.botEnabled) return false; // ไม่มี config หรือ ปิด → เงียบ (คง behavior เดิม)
+    const [config, entitlements] = await Promise.all([
+      deps.getBotConfig(ref.ws),
+      deps.getEntitlements(ref.ws),
+    ]);
+    // 2 ชั้น: **ซื้อ**โมดูล bot ไหม (entitlement · fail-closed) + **เปิดใช้**ไหม (bot config) — ADR-0007 ข้อ 5
+    if (!config?.botEnabled || !hasEntitlement(entitlements, 'bot')) return false;
 
     const conversation = await deps.getConversation(ref.ws, ref.conv);
     if (!conversation) return false;
@@ -173,7 +183,9 @@ export function createBotConsumer(deps: BotConsumerDeps) {
     if (text == null) return false; // ไม่ใช่ text (MVP bot ตอบ text อย่างเดียว) → ปล่อยให้ human ดู
 
     const decision = applyBotRules(text, await deps.listRules(ref.ws, ref.channelId));
-    await act(ref, ownership, text, decision, config.aiEnabled);
+    // AI ก็ 2 ชั้นเหมือนกัน — ซื้อโมดูล `ai` + เปิด aiEnabled ถึงจะถาม (ไม่ซื้อ = no_match → escalate หา human)
+    const aiAllowed = config.aiEnabled && hasEntitlement(entitlements, 'ai');
+    await act(ref, ownership, text, decision, aiAllowed);
     return true;
   }
 

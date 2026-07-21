@@ -19,6 +19,7 @@ import {
   createOutboxEventBus,
   createOutboxStore,
   createWebRouteResolver,
+  createWorkspaceEntitlementsRepository,
   loadEncryptionKey,
   systemClock,
 } from '@omni/db';
@@ -237,6 +238,8 @@ export function createContainer(config: ContainerConfig): Container {
   const conversations = createConversationRepository(handle.db);
   const agents = createAgentRepository(handle.db);
   const inboxRead = createInboxReadRepository(handle.db);
+  // สิทธิ์ที่ workspace ซื้อไว้ (Phase 6) — ตัวเดียวใช้ร่วมกันทั้ง route (gate/expose) และ bot consumer
+  const entitlements = createWorkspaceEntitlementsRepository(handle.db);
 
   // channel IO (credential resolver + outbound gateway ต่อช่องทาง + dispatcher) — ประกอบแยกกัน God function
   const { outbound, lineCredentials, lineProfile } = buildChannelIo(
@@ -272,17 +275,15 @@ export function createContainer(config: ContainerConfig): Container {
   const manageConversation = buildManageConversation(handle, triggerDrain);
 
   // Bot consumer (Phase 5) — cursor 'bot' ของตัวเอง · reuse sendOutbound/manageConversation ที่ประกอบข้างบน
-  const drainBot = buildBotConsumer(
+  const drainBot = buildBotConsumer({
     handle,
     conversations,
     inboxRead,
+    entitlements,
     sendOutbound,
     manageConversation,
-    {
-      apiKey: config.anthropicApiKey,
-      fetch: config.anthropicFetch,
-    },
-  );
+    ai: { apiKey: config.anthropicApiKey, fetch: config.anthropicFetch },
+  });
   let inFlightBotDrain: Promise<unknown> = Promise.resolve();
   const triggerBotDrain = (): void => {
     // fire-and-forget เหมือน triggerDrain · consumer แยก cursor → trigger คู่กับ agent drain ได้
@@ -334,6 +335,7 @@ export function createContainer(config: ContainerConfig): Container {
     inboxRead,
     conversations,
     manageConversation,
+    entitlements,
     auth,
     session,
     newSessionId: () => `web_${randomUUID()}`,

@@ -106,6 +106,7 @@ function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
     inboxRead: noopInboxRead,
     conversations: noopConversations,
     manageConversation: noopManage,
+    entitlements: { get: async () => null }, // LINE webhook ไม่เช็คสิทธิ์ (ช่องทาง gate ด้วยข้อมูล — ADR-0007)
     auth: noopAuth,
     session: { cookieName: 'session', secure: false, maxAgeSec: 3600, allowedOrigins: [] },
     newSessionId: () => 'sess',
