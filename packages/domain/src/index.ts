@@ -9,4 +9,5 @@ export * from './services/ingest-inbound-message';
 export * from './services/send-outbound-message';
 export * from './services/manage-conversation';
 export * from './services/apply-bot-rules';
+export * from './services/manage-bot-rules';
 export * from './services/check-entitlement';
