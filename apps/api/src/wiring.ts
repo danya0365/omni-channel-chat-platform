@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import {
   createDeliverOutboundMessage,
   createIngestInboundMessage,
+  createManageBotRules,
   createManageConversation,
   createPersistOutboundMessage,
 } from '@omni/domain';
@@ -19,6 +20,8 @@ import {
   createOutboxEventBus,
   createOutboxStore,
   createWebRouteResolver,
+  createWorkspaceBotConfigRepository,
+  createBotRuleRepository,
   createWorkspaceEntitlementsRepository,
   loadEncryptionKey,
   systemClock,
@@ -274,6 +277,15 @@ export function createContainer(config: ContainerConfig): Container {
   // manage conversation (assign/unassign/close/reopen/assignBot/escalate) — tx + outbox + triggerDrain (แยก helper)
   const manageConversation = buildManageConversation(handle, triggerDrain);
 
+  // จอจัดการ bot (Phase 6) — CRUD ธรรมดา ไม่มี outbox event (ไม่มีใครต้อง sync realtime กับการแก้ rule)
+  const manageBotRules = createManageBotRules({
+    rules: createBotRuleRepository(handle.db),
+    config: createWorkspaceBotConfigRepository(handle.db),
+    channels,
+    generateId,
+    now: systemClock,
+  });
+
   // Bot consumer (Phase 5) — cursor 'bot' ของตัวเอง · reuse sendOutbound/manageConversation ที่ประกอบข้างบน
   const drainBot = buildBotConsumer({
     handle,
@@ -336,6 +348,7 @@ export function createContainer(config: ContainerConfig): Container {
     conversations,
     manageConversation,
     entitlements,
+    manageBotRules,
     auth,
     session,
     newSessionId: () => `web_${randomUUID()}`,

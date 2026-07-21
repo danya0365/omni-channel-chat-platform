@@ -181,6 +181,8 @@ function makeDeps(overrides: Partial<AppDeps> = {}): AppDeps {
       get: async (workspaceId) =>
         workspaceId === 'ws_1' ? { workspaceId, modules: ['bot', 'reports'] } : null,
     },
+    // จอจัดการ bot ทดสอบแยกที่ routes/bot-admin.test.ts — ที่นี่ไม่ถูกเรียก
+    manageBotRules: {} as AppDeps['manageBotRules'],
     auth,
     session: { cookieName: 'session', secure: false, maxAgeSec: 3600, allowedOrigins: [] },
     newSessionId: () => 'web_test_session',

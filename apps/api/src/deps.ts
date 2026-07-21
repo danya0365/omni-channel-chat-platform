@@ -4,6 +4,7 @@ import type {
   ConversationId,
   ConversationRepository,
   InboxReadRepository,
+  ManageBotRules,
   ManageConversation,
   SendOutboundMessage,
   WorkspaceEntitlementsRepository,
@@ -54,6 +55,8 @@ export interface AppDeps {
    * ไม่มี row = ไม่มีสิทธิ์เลย (fail-closed) · เช็คด้วย `hasEntitlement` จาก @omni/domain
    */
   entitlements: WorkspaceEntitlementsRepository;
+  /** จอจัดการ bot ของ workspace (Phase 6) — CRUD rules + สวิตช์ bot/AI · route gate ด้วยโมดูล `bot` */
+  manageBotRules: ManageBotRules;
   /** auth ของ agent (login + verify token) — Phase 3 */
   auth: AuthService;
   /** ตั้งค่า session cookie + CSRF Origin allowlist — auth transport = httpOnly cookie (ADR-0005) */
