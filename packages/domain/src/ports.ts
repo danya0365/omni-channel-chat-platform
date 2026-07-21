@@ -9,6 +9,7 @@ import type { Assignee, Conversation, ConversationStatus } from './schema/conver
 import type { DeliveryStatus, Message, MessageContent, MessageDirection } from './schema/message';
 import type { BotRule } from './schema/bot-rule';
 import type { WorkspaceBotConfig } from './schema/workspace-bot-config';
+import type { WorkspaceEntitlements } from './schema/workspace-entitlements';
 
 /**
  * ChannelRepository — resolve channel จาก id
@@ -134,6 +135,14 @@ export interface BotRuleRepository {
  */
 export interface WorkspaceBotConfigRepository {
   get(workspaceId: WorkspaceId): Promise<WorkspaceBotConfig | null>;
+}
+
+/**
+ * WorkspaceEntitlementsRepository — โมดูลที่ workspace ซื้อไว้ (Phase 6 · ADR-0007)
+ * `null` = ไม่มี row = **ไม่มีสิทธิ์อะไรเลย** (fail-closed) — caller ใช้คู่กับ `hasEntitlement`
+ */
+export interface WorkspaceEntitlementsRepository {
+  get(workspaceId: WorkspaceId): Promise<WorkspaceEntitlements | null>;
 }
 
 /** ข้อมูลที่ AI ใช้ตัดสินใจตอบ (Phase 5B · MVP = ข้อความลูกค้าล่าสุดอย่างเดียว → ลด PII ที่ส่งออกนอกระบบ) */
