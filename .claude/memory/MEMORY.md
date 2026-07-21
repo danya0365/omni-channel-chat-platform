@@ -23,6 +23,7 @@
 - [0005 Auth Transport httpOnly Cookie](decisions/0005-auth-transport-httponly-cookie.md) — ย้าย auth จาก localStorage token → httpOnly cookie (SameSite=Strict) + CSRF Origin check + CORS credentials + WS cookie · ปลด server-first RSC
 - [0006 Phase 5 Bot/Automation + AI Reply](decisions/0006-phase-5-bot-automation-and-ai-reply.md) — bot ตื่นผ่าน consumer แยก (additive multi-subscriber outbox, cursor/subscriber) · bot เป็นเจ้าของสายใหม่ก่อน (escalate=null queue) · rules ต่อ workspace (plaintext) · AI = adapter @omni/bot-anthropic (inject fetch) + ANTHROPIC_API_KEY env + per-workspace opt-in · ปม PII
 - [0007 Phase 6 Entitlements](decisions/0007-phase-6-entitlements.md) — **เปิดฟีเจอร์ต่อ tenant ด้วยข้อมูลใน DB** (ไม่ใช่ flag ในโค้ด) · gate ระดับ **โมดูล 8 ตัว** ไม่ใช่รายฟีเจอร์ (45 flag = combination ระเบิด) · ช่องทางแชท gate ด้วยข้อมูลอยู่แล้ว · บริการไม่ใช่ flag · บังคับที่ server UI แค่ซ่อน · additive ไม่รื้อ `workspace_bot_config` · self-host กันไม่ได้จริง ยอมรับ
+- [0008 ICP & Positioning](decisions/0008-icp-and-positioning.md) — **ขายให้ใคร/พูดว่าอะไร** · ICP หัวหอก = **เอเจนซี่/หลายแบรนด์** (secondary = ธุรกิจบริการ · SME LINE-first ไว้ทีหลัง) · หัวหอก positioning = **"ราคาไม่บวมตามจำนวนคน"** ชน per-seat ตรงๆ · landing อยู่ใน `apps/billing` ไม่แยก app · **ห้าม testimonial ปลอม / ห้ามเคลมช่องทางที่ยังไม่ต่อ**
 
 ## Active Channels
 
@@ -42,10 +43,25 @@
 **Phase 1–6 merged เข้า `main` หมดแล้ว (dev ครบ ไม่มีงานค้างกลางคัน)**
 verify ล่าสุด: `pnpm gate` **260 unit** · `pnpm test:integration` **54** · e2e browser **3/3**
 
-🌿 **branch ปัจจุบัน = `feature/marketing-landing`** (แตกจาก `main` @ `49814c7`) —
-พี่เลือกงานถัดไป = **Marketing / landing page** (ตัวเลือก B ใน [[phase-6-progress]])
-→ **ด่านแรก: เคาะ ICP + positioning ก่อน** (เป็น input ของทุกอย่าง · pricing เคาะแล้วผ่านใบเสนอราคา)
-→ รายละเอียด + สิ่งที่เคลมได้/ไม่ได้ อยู่ใน [[marketing-page-brief]]
+🌿 **branch ปัจจุบัน = `feature/marketing-landing`** (แตกจาก `main` @ `49814c7`) — งาน **Marketing / landing**
+
+### ⏸️ งาน marketing — **พักไว้ (พี่สั่งพัก 2026-07-21)** · ทำถึงไหนแล้ว
+
+✅ **เคาะ ICP + positioning** ([[adr-0008-icp-and-positioning]]) → **เอเจนซี่/หลายแบรนด์** ·
+หัวหอก = **"เพิ่มทีมตอบแชทกี่คน ราคาก็เท่าเดิม"** (ชน per-seat)
+✅ **landing เขียนใหม่ทั้งหน้าตาม positioning** (`apps/billing` — hero/stats/features/use-case/FAQ/CTA/metadata+OG) ·
+ถอด **testimonial ปลอม** ออกหมด · แก้เคลมช่องทางให้ตรงจริง (ต่อแล้ว = web + LINE เท่านั้น) ·
+verify: `npm run build` เขียว + Playwright ตรวจ 8 ข้อผ่าน · **ยังไม่ commit — รอพี่สั่ง (มี 6 ไฟล์ค้างใน working tree)**
+🔜 ค้างไว้: screenshot เดโมจริง · ตัวเลขเทียบ per-seat (ห้ามมั่ว) · lead funnel · ดู [[marketing-page-brief]]
+
+### ▶️ งานถัดไป (session ใหม่) — **`apps/billing` เรื่องใบเสนอราคา**
+
+พี่สั่งไว้แต่ **ยังไม่ระบุว่าจะแก้อะไร → ถามก่อน อย่าเดาแล้วลุย** · handoff เต็ม + สิ่งที่เจอ:
+[[billing-quotation-followup]]
+🔴 บั๊กที่เจอระหว่างสำรวจ (ยังไม่แก้): **เลขที่เอกสารสุ่มใหม่ทุก refresh** (`Math.random()` ใน presenter hooks
+ทั้ง quote/invoice/receipt) → เอกสารที่ส่งลูกค้ากับที่เราเห็นคนละเลข ตามงานไม่ได้
+⚠️ หนี้ `npm run lint` **11 errors** ใน `apps/billing` (มีมาก่อนงาน marketing — stash เทียบยืนยันแล้ว) ·
+app อยู่นอก `pnpm gate` เลยไม่มีใครจับ
 
 ## Working Log
 
@@ -55,8 +71,9 @@ verify ล่าสุด: `pnpm gate` **260 unit** · `pnpm test:integration` *
 
 ## Go-to-Market
 
+- [Billing/ใบเสนอราคา — งานถัดไป](log/billing-quotation-followup.md) — **handoff งานถัดไป** · สภาพปัจจุบัน (flow/state/ไฟล์ไหนแก้อะไร) · 🔴 บั๊กเลขที่เอกสารสุ่มใหม่ทุก refresh · หนี้ lint 11 errors · ข้อจำกัด localStorage (ไม่มีประวัติ/ข้ามเครื่องไม่ได้/ไม่มีสถานะเอกสาร)
 - **ใบเสนอราคา** (`apps/billing`) — **✅ ทำแล้ว (2026-07-21)** — Next app แยกเดี่ยว (นอก pnpm workspace/gate) ให้ลูกค้าเลือกฟีเจอร์เอง 72 ฟีเจอร์/10 หมวด → ราคาคำนวณทันที + ออกใบเสนอราคา/แจ้งหนี้/ใบเสร็จ · ราคา = **setup + รายเดือน** × **รูปแบบการจ้าง 4 แบบ** (solo+AI ×1.0 → บริษัท ×2.6) · **ช่องทางแชท = loss leader** (มาตรฐานลด 30% ตั้งแต่ตัวที่ 2 + เพดานรวม ฿10,000 · กลุ่มต้องขออนุมัติแยกราคา) · รัน `cd apps/billing && npm run dev`
-- [Marketing Page Brief](log/marketing-page-brief.md) — brief หน้า marketing/landing + go-to-market kit · **ยังค้าง: ICP + positioning + หน้าเพจจริง** (pricing เคาะแล้วผ่านใบเสนอราคา) · Phase 5 bot(rule)=เคลมได้ / AI=beta · pain points · ROI angles
+- [Marketing Page Brief](log/marketing-page-brief.md) — brief หน้า marketing/landing + go-to-market kit · **ICP/positioning/หน้าเพจ = เคาะ+ทำแล้ว** ([[adr-0008-icp-and-positioning]]) · **ยังค้าง: screenshot เดโมจริง · ตัวเลขเทียบ per-seat · lead funnel · one-pager/pitch deck** · Phase 5 bot(rule)=เคลมได้ / AI=beta · pain points · ROI angles
 
 ## Reference
 
