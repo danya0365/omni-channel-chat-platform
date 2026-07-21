@@ -3,8 +3,13 @@
 
 import type {
   AuthAgent,
+  BotRulePatchInput,
   ConversationPatch,
+  NewBotRule,
   Session,
+  UiEntitlementModule,
+  WireBotConfig,
+  WireBotRule,
   WireConversation,
   WireMessage,
 } from '../domain/types';
@@ -92,3 +97,56 @@ export const assignConversation = (id: string) => manageAction(id, 'assign');
 export const unassignConversation = (id: string) => manageAction(id, 'unassign');
 export const closeConversation = (id: string) => manageAction(id, 'close');
 export const reopenConversation = (id: string) => manageAction(id, 'reopen');
+
+/** ยิง request ที่เปลี่ยนข้อมูล (JSON body optional) — 401 → logout · 403 = ไม่ได้ซื้อโมดูล/origin ไม่ผ่าน */
+async function authedWrite<T>(
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  const res = await fetch(`${API_ORIGIN}${path}`, {
+    method,
+    credentials: 'include',
+    ...(body === undefined
+      ? {}
+      : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+  });
+  if (res.status === 401) throw new UnauthorizedError();
+  if (!res.ok) throw new Error(`${method} ${path} failed: ${res.status}`);
+  return (await res.json()) as T;
+}
+
+// ── Phase 6: สิทธิ์ + จอจัดการบอท ──
+
+/** โมดูลที่ workspace ซื้อไว้ — ใช้ซ่อนเมนู (server บังคับสิทธิ์จริงเองทุก route) */
+export async function getEntitlements(): Promise<UiEntitlementModule[]> {
+  const body = await authedGet<{ modules: UiEntitlementModule[] }>('/inbox/entitlements');
+  return body.modules;
+}
+
+export async function listBotRules(): Promise<WireBotRule[]> {
+  return (await authedGet<{ rules: WireBotRule[] }>('/inbox/bot/rules')).rules;
+}
+
+export async function getBotConfig(): Promise<WireBotConfig> {
+  return (await authedGet<{ config: WireBotConfig }>('/inbox/bot/config')).config;
+}
+
+export async function setBotConfig(input: {
+  botEnabled: boolean;
+  aiEnabled: boolean;
+}): Promise<WireBotConfig> {
+  return (await authedWrite<{ config: WireBotConfig }>('PUT', '/inbox/bot/config', input)).config;
+}
+
+export async function createBotRule(input: NewBotRule): Promise<WireBotRule> {
+  return (await authedWrite<{ rule: WireBotRule }>('POST', '/inbox/bot/rules', input)).rule;
+}
+
+export async function updateBotRule(id: string, patch: BotRulePatchInput): Promise<WireBotRule> {
+  return (await authedWrite<{ rule: WireBotRule }>('PATCH', `/inbox/bot/rules/${id}`, patch)).rule;
+}
+
+export async function deleteBotRule(id: string): Promise<void> {
+  await authedWrite<{ deleted: string }>('DELETE', `/inbox/bot/rules/${id}`);
+}

@@ -22,9 +22,12 @@ interface Props {
   onFilterChange: (f: Filter) => void;
   onSelect: (id: string) => void;
   onLogout: () => void;
+  /** workspace ซื้อโมดูล bot ไหม — ไม่ซื้อ = ไม่โชว์เมนู (UX · server บังคับสิทธิ์จริงอยู่แล้ว) */
+  canManageBot: boolean;
+  onOpenBot: () => void;
 }
 
-/** แถบซ้าย — ตัวตน agent + สถานะ WS + สลับธีม + แท็บกรอง + ลิสต์สนทนา */
+/** แถบซ้าย — ตัวตน agent + สถานะ WS + สลับธีม + เมนูตั้งค่าบอท (ถ้าซื้อ) + แท็บกรอง + ลิสต์สนทนา */
 export function Sidebar({
   session,
   status,
@@ -34,6 +37,8 @@ export function Sidebar({
   onFilterChange,
   onSelect,
   onLogout,
+  canManageBot,
+  onOpenBot,
 }: Props) {
   const s = STATUS[status];
   return (
@@ -53,6 +58,14 @@ export function Sidebar({
           >
             ออกจากระบบ
           </button>
+          {canManageBot ? (
+            <button
+              onClick={onOpenBot}
+              className="text-xs text-muted transition hover:text-foreground"
+            >
+              ตั้งค่าบอท
+            </button>
+          ) : null}
           <ThemeSwitcher />
         </div>
       </header>
