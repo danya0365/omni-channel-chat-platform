@@ -1,6 +1,6 @@
 ---
 name: phase-6-progress
-description: สถานะ Phase 6 (entitlement — เปิดฟีเจอร์ต่อ tenant) — Increment 1 (domain) + 2 (DB) เขียว+commit แล้ว บน branch feature/phase-6-entitlements (gate 227 + integration 47) · เหลือ Increment 3 (บังคับใช้ที่ server) + 4 (UI/seed) · ยังไม่ push. อ่านตอนทำ Phase 6 ต่อ / แตะ entitlement / เพิ่มฟีเจอร์ที่ขายแยก
+description: สถานะ Phase 6 (entitlement — เปิดฟีเจอร์ต่อ tenant) — Increment 1-2 commit แล้ว · Increment 3 (บังคับใช้ที่ server + route + seed) เขียวแต่ยังไม่ commit (gate 235 + integration 49) · Phase 5 merged main แล้ว · เหลือ Increment 4 (UI ซ่อนเมนู). อ่านตอนทำ Phase 6 ต่อ / แตะ entitlement / เพิ่มฟีเจอร์ที่ขายแยก
 metadata:
   node_type: memory
   type: log
@@ -8,7 +8,7 @@ metadata:
   scope: global
   updated: 2026-07-21
   originSessionId: 3be9577c-b819-462f-a61d-267f34fc9eb5
-  modified: 2026-07-21T04:26:30.722Z
+  modified: 2026-07-21T04:45:44.309Z
 ---
 
 # Handoff — Phase 6: Entitlements (เปิดฟีเจอร์ต่อ tenant)
@@ -16,22 +16,18 @@ metadata:
 > อ่านคู่: [[product-direction-per-tenant]] (แนวทางหลัก) + [[adr-0007-phase-6-entitlements]] (การตัดสินใจ)
 > Phase 5 ค้างที่ PR-ready ยังไม่ merge — ดู [[phase-5-progress]]
 
-## สถานะ (2026-07-21) — Increment 1-2 เขียว + commit ครบ
+## สถานะ (2026-07-21) — Increment 1-2 commit แล้ว · **Increment 3 เขียวแต่ยังไม่ commit**
 
 - 🌿 **branch `feature/phase-6-entitlements`** (แตกจาก `feature/phase-5-bot-automation` @ `73a9525`)
-  — แตกใหม่เพื่อไม่ให้ PR ของ Phase 5 บวม · **ยังไม่ push · ยังไม่มี PR**
+- ✅ **Phase 5 ปิดแล้ว** — `origin/main` มี PR #8 (Phase 5) + PR #9 (Phase 6 inc.1) merge แล้ว ·
+  branch นี้ = superset ของ main (มี inc.2 เพิ่ม) → **ไม่ต้อง merge/rebase ก่อนทำงานต่อ** ·
+  ตอนจะเปิด PR รอบหน้า base = **`main`**
 - ✅ **ADR-0007** + **core memory** [[product-direction-per-tenant]] (priority สูงสุดใน MEMORY.md)
 - ✅ **Increment 1 (domain pure)** + ✅ **Increment 2 (DB)** — เขียวครบ:
   `pnpm gate` **227 unit** (เดิม 217 · +10) · `pnpm test:integration` **47** (เดิม 41 · +6) ·
   boundaries 194 modules · check:app-routing ผ่าน
 - working tree สะอาด · commit ในนี้: `f18d948` chore(repo) แยก billing · `6ad6226` feat(billing) ·
   `124363e` feat(domain) inc.1 · `64acb13` docs(memory) · + inc.2 (ดูล่างสุด)
-
-### ⚠️ ค้างจาก Phase 5 (ยังไม่หาย)
-
-branch `feature/phase-5-bot-automation` push แล้วแต่ **PR ยังไม่ถูกสร้าง** (gh ไม่ auth) ·
-PR base ที่ถูกต้อง = **`main`** ไม่ใช่ `feature/phase-1-stack-skeleton` — ดู [[phase-5-progress]]
-· Phase 6 stack อยู่บน Phase 5 → merge Phase 5 ก่อน แล้วค่อย PR Phase 6
 
 ## ✅ Increment 1 — Domain (pure)
 
@@ -60,13 +56,29 @@ PR base ที่ถูกต้อง = **`main`** ไม่ใช่ `feature/
   ทะลุถึง `hasEntitlement`) · row เปล่า → `[]` · อ่านโมดูลครบ · **ไม่รั่วข้าม tenant** ·
   โมดูลแปลกใน DB (`["bot","teleporter","reports"]`) → คืน `["bot","reports"]` ไม่ throw · cascade ลบตาม workspace
 
+## ✅ Increment 3 — บังคับใช้ที่ server (gate 235 · integration 49) — ยังไม่ commit
+
+- **bot consumer** (`realtime/bot-consumer.ts`) — dep ใหม่ `getEntitlements(ws)` ·
+  `bot`: `config.botEnabled && hasEntitlement(ent,'bot')` (อ่าน config+ent แบบ `Promise.all`) ·
+  `ai`: `config.aiEnabled && hasEntitlement(ent,'ai')` → **ไม่ซื้อ = ไม่ยิง Anthropic เลย** (ไม่เสียเงินเรา)
+  · +5 unit (ไม่มี row / ซื้อโมดูลอื่น / ซื้อ bot / ซื้อ bot ไม่ซื้อ ai / ซื้อครบ)
+- **wire** — `createWorkspaceEntitlementsRepository` สร้างที่ `wiring.ts` **ตัวเดียว** ใช้ร่วม route+bot ·
+  `AppDeps.entitlements` · `buildBotConsumer` refactor **positional 6 ตัว → object param** (`BotConsumerWiring`)
+- **route `GET /inbox/entitlements`** — auth-scoped (workspace จาก token) คืน `{modules}` · ไม่มี row = `[]` ไม่ใช่ 404
+  · +3 test (401 / 200 ตรง / fail-closed) — UI (inc 4) เอาไปซ่อนเมนู
+- **seed-dev** — `seedDemoEntitlements()` เปิดครบทุกโมดูลจาก `entitlementModuleSchema.options`
+  (ไม่ hardcode) · **upsert** ไม่ใช่ doNothing → re-seed หลังเพิ่มโมดูลใหม่ได้ครบ · แตก helper กัน `main()` เกิน 120 บรรทัด
+- integration +2 (`bot-flow`): botEnabled=true แต่ไม่มี entitlement row → **ไม่ตอบ** (fail-closed ทะลุ pipeline จริง) ·
+  ซื้อ bot ไม่ซื้อ ai + aiEnabled → escalate + `aiCalled === false`
+- **verify จริง** (DoD ข้อ 3): `seed:dev` รันจริง → ws_demo ได้ 8 โมดูลใน DB · start api :3099 →
+  `GET /inbox/entitlements` ไม่ auth = **401** · login แล้ว = **200 + 8 โมดูล**
+
 ## ถัดไป (ยังไม่เริ่ม)
 
-- **Increment 3 — บังคับใช้ที่ server**: wire repo เข้า `apps/api` (`deps.ts` / `wiring.ts`) +
-  helper เช็คสิทธิ์ที่ route/service ·
-  ผูก `bot`/`ai` ให้ต้องผ่าน **ทั้ง** entitlement (ซื้อไหม) และ `workspace_bot_config` (เปิดใช้ไหม)
-- **Increment 4 — UI + seed**: `apps/inbox` ซ่อนเมนูที่ไม่ได้ซื้อ (UX ไม่ใช่ security) ·
-  `seed-dev.ts` เปิดครบทุกโมดูล (ไม่งั้น dev เจอฟีเจอร์หายแล้วงง)
+- **Increment 4 — UI**: `apps/inbox` เรียก `GET /inbox/entitlements` แล้วซ่อนเมนูที่ไม่ได้ซื้อ (UX ไม่ใช่ security)
+- ยังไม่มี **route guard** (`requireEntitlement` preHandler) — **ตั้งใจ**: ตอนนี้ยังไม่มี endpoint ที่ขายแยกจริง
+  (inbox/routing ปัจจุบัน = core · ช่องทางแชท gate ด้วยข้อมูล) → สร้างตอนมีฟีเจอร์แรกที่ต้องใช้ ไม่สร้าง dead code ทิ้งไว้
+- admin UI แก้ entitlement ต่อ workspace (ตอนนี้ต้อง update row เอง)
 
 ## Gotchas
 

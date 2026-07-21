@@ -37,8 +37,8 @@
 
 ## Working Log
 
-- [Phase 6 Progress](log/phase-6-progress.md) — **🔨 กำลังทำ · branch `feature/phase-6-entitlements`** — entitlement (เปิดฟีเจอร์ต่อ tenant) · **Increment 1 (domain) + 2 (DB) เขียว+commit ครบ** (gate 227 + integration 47) · เหลือ **3 บังคับใช้ที่ server** / **4 UI+seed** · ยังไม่ push · Phase 6 stack บน Phase 5 ที่ยังไม่ merge
-- [Phase 5 Progress](log/phase-5-progress.md) — **paused @ PR-ready (pivot ไป marketing)** — bot/automation + AI reply core (Increment 1-3b) เขียว+commit ครบ (gate 217 + integration 41) · branch push แล้วแต่ **PR ยังไม่สร้าง** (gh ไม่ auth) · resume = สร้าง PR **base `main`** (ไม่ใช่ phase-1-skeleton ที่ remote HEAD ชี้ค้าง) → merge · ถัดไป: verify API จริง / hardening / admin UI
+- [Phase 6 Progress](log/phase-6-progress.md) — **🔨 กำลังทำ · branch `feature/phase-6-entitlements`** — entitlement (เปิดฟีเจอร์ต่อ tenant) · **Increment 1-2 commit แล้ว · 3 (บังคับใช้ที่ server + `GET /inbox/entitlements` + seed) เขียวแต่ยังไม่ commit** (gate 235 + integration 49 + verify server จริง) · เหลือ **4 UI ซ่อนเมนู**
+- [Phase 5 Progress](log/phase-5-progress.md) — **✅ ปิดแล้ว · merged เข้า main (PR #8)** — bot/automation (rule) + AI reply fallback (Claude Opus 4.8) · follow-up ที่ยังค้าง: verify ยิง Anthropic จริง 1 ครั้ง / hardening (AI timeout, outbox retention) / admin UI จัดการ rules
 - [Phase 4 Progress](log/phase-4-progress.md) — **done · merged เข้า main (PR #2–#6)** — Phase 4 (routing + LINE) + hardening (dedup/tx-split/retry) + tech debt B (failed-status realtime, LINE profile name, auth httpOnly cookie [[adr-0005-auth-transport-httponly-cookie]]) · verify ครบ (gate+integration 34+e2e browser) · ถือ deferred tech debt list
 
 ## Go-to-Market
