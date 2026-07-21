@@ -1,6 +1,6 @@
 ---
 name: phase-6-progress
-description: สถานะ Phase 6 (entitlement — เปิดฟีเจอร์ต่อ tenant) — Increment 1-2 commit แล้ว · Increment 3 (บังคับใช้ที่ server + route + seed) เขียวแต่ยังไม่ commit (gate 235 + integration 49) · Phase 5 merged main แล้ว · เหลือ Increment 4 (UI ซ่อนเมนู). อ่านตอนทำ Phase 6 ต่อ / แตะ entitlement / เพิ่มฟีเจอร์ที่ขายแยก
+description: Phase 6 (entitlement — เปิดฟีเจอร์ต่อ tenant) **จบแล้ว merged main (PR #10)** — กลไกครบ (domain/DB/บังคับที่ server/route guard) + ฟีเจอร์แรกที่ใช้กลไก = จอจัดการบอท · gate 260 + integration 54 + e2e 3/3. อ่านเมื่อจะเพิ่มฟีเจอร์ที่ขายแยก / แตะ entitlement / ทำ admin เปิดปิดโมดูล
 metadata:
   node_type: memory
   type: log
@@ -8,26 +8,30 @@ metadata:
   scope: global
   updated: 2026-07-21
   originSessionId: 3be9577c-b819-462f-a61d-267f34fc9eb5
-  modified: 2026-07-21T05:18:03.983Z
+  modified: 2026-07-21T05:27:06.811Z
 ---
 
-# Handoff — Phase 6: Entitlements (เปิดฟีเจอร์ต่อ tenant)
+# Phase 6: Entitlements (เปิดฟีเจอร์ต่อ tenant) — ✅ จบแล้ว
 
 > อ่านคู่: [[product-direction-per-tenant]] (แนวทางหลัก) + [[adr-0007-phase-6-entitlements]] (การตัดสินใจ)
-> Phase 5 ค้างที่ PR-ready ยังไม่ merge — ดู [[phase-5-progress]]
 
-## สถานะ (2026-07-21) — Increment 1-3 commit+push แล้ว · **Increment 4 (bot admin UI) เขียวแต่ยังไม่ commit**
+## สถานะ (2026-07-21) — **merged เข้า `main` แล้ว (PR #10 · `49814c7`)**
 
-- 🌿 **branch `feature/phase-6-entitlements`** (แตกจาก `feature/phase-5-bot-automation` @ `73a9525`)
-- ✅ **Phase 5 ปิดแล้ว** — `origin/main` มี PR #8 (Phase 5) + PR #9 (Phase 6 inc.1) merge แล้ว ·
-  branch นี้ = superset ของ main (มี inc.2 เพิ่ม) → **ไม่ต้อง merge/rebase ก่อนทำงานต่อ** ·
-  ตอนจะเปิด PR รอบหน้า base = **`main`**
-- ✅ **ADR-0007** + **core memory** [[product-direction-per-tenant]] (priority สูงสุดใน MEMORY.md)
-- ✅ **Increment 1 (domain pure)** + ✅ **Increment 2 (DB)** — เขียวครบ:
-  `pnpm gate` **227 unit** (เดิม 217 · +10) · `pnpm test:integration` **47** (เดิม 41 · +6) ·
-  boundaries 194 modules · check:app-routing ผ่าน
-- working tree สะอาด · commit ในนี้: `f18d948` chore(repo) แยก billing · `6ad6226` feat(billing) ·
-  `124363e` feat(domain) inc.1 · `64acb13` docs(memory) · + inc.2 (ดูล่างสุด)
+- ✅ Increment **1-4 ครบ** · working tree สะอาด · branch `feature/phase-6-entitlements` merge แล้ว (ลบทิ้งได้)
+- ✅ verify ล่าสุด: `pnpm gate` **260 unit** · `pnpm test:integration` **54** ·
+  **e2e browser 3/3** · boundaries 208 modules · check:app-routing ผ่าน
+- ✅ Phase 4 (PR #2–6) · Phase 5 (PR #8) · Phase 6 (PR #9, #10) อยู่ใน `main` หมดแล้ว —
+  **ไม่มี branch ค้างที่ยังไม่ merge**
+
+### 🎯 สิ่งที่ Phase 6 ให้ (สรุปให้ session ใหม่)
+
+| ต้องการ                       | ใช้อะไร                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| เช็คสิทธิ์ใน service/consumer | `hasEntitlement(ent, 'module')` จาก `@omni/domain` + repo `entitlements.get(ws)`                               |
+| gate route ที่ขายแยก          | `requireEntitlement(req, reply, deps, 'module', {stateChanging})` — `apps/api/src/routes/entitlement-guard.ts` |
+| ให้ UI ซ่อนเมนู               | `GET /inbox/entitlements` → hook `useEntitlements().has('module')`                                             |
+| เพิ่มโมดูลใหม่                | แก้ `entitlementModuleSchema` (union) อย่างเดียว — **ไม่ต้อง migration** (jsonb array)                         |
+| ตัวอย่างครบวง                 | โมดูล `bot`: consumer gate + routes `/inbox/bot/*` + drawer ใน inbox + e2e                                     |
 
 ## ✅ Increment 1 — Domain (pure)
 
@@ -99,10 +103,21 @@ metadata:
 → `lastMessage` ของสายกลายเป็นข้อความบอท → e2e เดิมที่หา row ด้วยข้อความลูกค้า **หาไม่เจอ (พังทั้ง 2 เคส)**
 · แก้ที่ e2e: `beforeEach` ปิดบอทผ่าน `PUT /inbox/bot/config` (endpoint ใหม่ของ Phase 6 เอง) แล้วเทสต์บอทเปิด/ปิดเอง
 
-## ถัดไป (ยังไม่เริ่ม)
+## 🔜 ถัดไป — ตัวเลือกที่เปิดอยู่ (ยังไม่เลือก · พี่เคาะเอง)
 
-- admin UI แก้ **entitlement** ต่อ workspace (ตอนนี้ต้อง UPDATE row เอง) — ติดที่ `agents` ยังไม่มี role/owner
-- ฟีเจอร์ถัดไปที่ขายแยก = เขียนแล้วผูก 1 โมดูล + ครอบด้วย `requireEntitlement` (pattern พร้อมแล้ว)
+> ไม่มีงานค้างกลางคัน ทุกอย่าง merged — session ใหม่เริ่มจากศูนย์ได้ทันที เลือกได้อิสระ
+
+| ตัวเลือก                                                                                                            | ทำไมน่าทำ                                                       | ต้นทุน/ข้อควรระวัง                                                              |
+| ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **A. Admin UI จัดการ entitlement**                                                                                  | ลูกค้าจ่ายเพิ่ม = ต้องเข้า DB `UPDATE` เอง (คอขวดตอนขายจริง)    | **ต้องทำ role/owner ใน `agents` ก่อน** (ยังไม่มี) → งานบานกว่าที่คิด            |
+| **B. Marketing / go-to-market** ([[marketing-page-brief]])                                                          | มีของขายจริงแล้ว (inbox+LINE+bot+AI) แต่ยังไม่มีหน้าขาย         | ต้องเคาะ **ICP + positioning ก่อน** (เป็น input ของทุกอย่าง) · pricing เคาะแล้ว |
+| **C. follow-up Phase 5** — ยิง Anthropic จริง 1 ครั้ง · hardening (AI timeout/rate-limit, outbox retention/cleanup) | AI ยัง **ไม่เคยยิง API จริง** เลย (เคลมได้แค่ beta)             | ต้องมี `ANTHROPIC_API_KEY` จริง · hardening ไม่มี user เห็นทันที                |
+| **D. ช่องทางใหม่** (Messenger / IG / WhatsApp)                                                                      | ขยายของที่ขายได้ · adapter pattern พิสูจน์แล้ว 2 รอบ (web/LINE) | ต้องมี dev account ของแต่ละเจ้า · ใช้ `/new-channel` + mirror `channel-line`    |
+| **E. ฟีเจอร์ที่ขายแยกตัวถัดไป**                                                                                     | กลไก entitlement พร้อมแล้ว — เขียน + ผูก 1 โมดูล + guard        | **ควรรอ demand จริง** (ADR-0007: สร้างกลไกก่อน เขียนฟีเจอร์ตอนมีคนจ่าย)         |
+
+**ความเห็น Iris:** ถ้าเป้าคือ "หาเงิน" → **B** (ของพร้อมขายแล้ว แต่ไม่มีหน้าขาย = ขายไม่ได้) ·
+ถ้าเป้าคือ "ทำของให้พร้อมส่งมอบ" → **C** (AI ที่ไม่เคยยิงจริงคือความเสี่ยงที่ค้างอยู่) ·
+**A** รอจนมีลูกค้าจ่ายจริงคนที่ 2-3 ค่อยทำ (ก่อนหน้านั้น UPDATE row เองเร็วกว่า)
 
 ## Gotchas
 
@@ -115,6 +130,7 @@ metadata:
 
 ## วิธีรัน / verify
 
-- gate: `pnpm gate` (lint + typecheck + test 227 + boundaries 194 + app-routing)
-- integration: `pnpm db:up` แล้ว `pnpm test:integration` (47)
+- gate: `pnpm gate` (lint + typecheck + **test 260** + boundaries 208 + app-routing)
+- integration: `pnpm db:up` แล้ว `pnpm test:integration` (**54**)
+- e2e browser: `pnpm --filter @omni/inbox e2e` (**3 เคส** · ต้อง db:up · ดู [[inbox-e2e-harness]])
 - migration ใหม่: `pnpm --filter @omni/db db:generate` · dev DB apply อัตโนมัติผ่าน `runMigrations` ใน integration test

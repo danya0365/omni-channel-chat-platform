@@ -34,11 +34,19 @@
 - **agent inbox** (Phase 3) — Next 16 UI (`apps/inbox`) + api `/inbox/*` routes + agent WS realtime (key=workspaceId) · ดู [[phase-3-progress]]
 - **realtime pipeline** (Phase 3) — transactional outbox → immediate drain → fan-out agent WS + pg-boss relay · ดู [[adr-0003-phase-3-inbox-realtime-auth]]
 - **auth** (Phase 3) — signed-session (scrypt+HMAC, zero-dep) ฝัง workspaceId ใน token
+- **bot/automation** (Phase 5-6) — consumer แยก (cursor 'bot') ตอบตาม rule → AI fallback · **จอจัดการใน inbox** (`/inbox/bot/*` + drawer) · ต้องผ่าน **ทั้ง** entitlement `bot` และสวิตช์ `workspace_bot_config`
+- **entitlements** (Phase 6) — เปิดฟีเจอร์ต่อ workspace ด้วยข้อมูลใน DB · `hasEntitlement` (domain) + `requireEntitlement` (route guard) + `GET /inbox/entitlements` (UI ซ่อนเมนู) · ดู [[adr-0007-phase-6-entitlements]]
+
+## 📍 ตอนนี้อยู่ตรงไหน (2026-07-21)
+
+**Phase 1–6 merged เข้า `main` หมดแล้ว · ไม่มี branch/งานค้างกลางคัน · working tree สะอาด**
+verify ล่าสุด: `pnpm gate` **260 unit** · `pnpm test:integration` **54** · e2e browser **3/3**
+→ งานถัดไปเลือกได้อิสระ — ตาราง 5 ตัวเลือก (A–E) + ความเห็น Iris อยู่ท้าย [[phase-6-progress]]
 
 ## Working Log
 
-- [Phase 6 Progress](log/phase-6-progress.md) — **🔨 กำลังทำ · branch `feature/phase-6-entitlements`** — entitlement (เปิดฟีเจอร์ต่อ tenant) · **Increment 1-3 commit+push แล้ว · 4 (จอจัดการบอท = ฟีเจอร์แรกที่ gate ด้วย `requireEntitlement('bot')` + เมนูซ่อนจริง) เขียวแต่ยังไม่ commit** (gate 260 + integration 54 + e2e browser 3/3)
-- [Phase 5 Progress](log/phase-5-progress.md) — **✅ ปิดแล้ว · merged เข้า main (PR #8)** — bot/automation (rule) + AI reply fallback (Claude Opus 4.8) · follow-up ที่ยังค้าง: verify ยิง Anthropic จริง 1 ครั้ง / hardening (AI timeout, outbox retention) / admin UI จัดการ rules
+- [Phase 6 Progress](log/phase-6-progress.md) — **✅ จบ · merged main (PR #9, #10)** — entitlement (เปิดฟีเจอร์ต่อ tenant) ครบวง: domain/DB → บังคับที่ server → `requireEntitlement` guard → จอจัดการบอทใน inbox (ฟีเจอร์แรกที่ใช้กลไกจริง) · **มีตาราง "ใช้อะไรเมื่อต้องการอะไร" + ตัวเลือกงานถัดไป**
+- [Phase 5 Progress](log/phase-5-progress.md) — **✅ ปิดแล้ว · merged เข้า main (PR #8)** — bot/automation (rule) + AI reply fallback (Claude Opus 4.8) · follow-up ที่ยังค้าง: **verify ยิง Anthropic จริง 1 ครั้ง** / hardening (AI timeout, outbox retention) · (admin UI จัดการ rules ทำแล้วใน Phase 6)
 - [Phase 4 Progress](log/phase-4-progress.md) — **done · merged เข้า main (PR #2–#6)** — Phase 4 (routing + LINE) + hardening (dedup/tx-split/retry) + tech debt B (failed-status realtime, LINE profile name, auth httpOnly cookie [[adr-0005-auth-transport-httponly-cookie]]) · verify ครบ (gate+integration 34+e2e browser) · ถือ deferred tech debt list
 
 ## Go-to-Market

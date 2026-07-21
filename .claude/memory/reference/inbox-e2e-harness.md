@@ -8,6 +8,7 @@ metadata:
   scope: inbox
   updated: 2026-07-19
   originSessionId: 46ba0ab4-fb53-4b26-a045-19ba5c8332f1
+  modified: 2026-07-21T05:25:34.802Z
 ---
 
 # Inbox e2e harness (Playwright)
@@ -31,6 +32,17 @@ pnpm --filter @omni/inbox e2e       # = playwright test
 
 1. **single agent**: login → เห็นสายจาก DB → รับเรื่อง (assign) → ตอบ (reply)
 2. **realtime**: inbound ใหม่เด้งเข้า **2 แท็บ** พร้อมกันผ่าน agent WS
+3. **bot admin** (Phase 6): เมนู "ตั้งค่าบอท" โผล่เพราะ ws_demo ซื้อโมดูล `bot` → เปิดจอ →
+   สลับสวิตช์ (`aria-pressed` ตามค่า server จริง) → เพิ่ม/ปิด/ลบกติกา
+
+## ⚠️ บอทแย่งตอบ = เทสต์ agent พังเงียบๆ (เจอจริง 2026-07-21)
+
+`seed:dev` เปิด `botEnabled=true` (ตั้งแต่ Phase 5) → inbound ที่ไม่ match rule ถูก bot escalate
+**พร้อมส่ง notice** → `lastMessage` ของสายกลายเป็นข้อความบอท → selector ที่หาแถวด้วยข้อความลูกค้า
+**หาไม่เจอ** (เทสต์ 1-2 พังทั้งคู่ โดยไม่มีใครรู้จน Phase 6)
+
+→ `beforeEach` ของ spec **ปิดบอทผ่าน API** (`POST /auth/login` แล้ว `PUT /inbox/bot/config`) ก่อนทุกเคส ·
+เคสที่ต้องการบอทเปิดให้จัดการสวิตช์เอง **แล้วปิดคืน** · **รัน e2e ทุกครั้งที่แตะ seed/bot/flow** ไม่ใช่แค่ตอนแตะ UI
 
 inbound สร้างผ่าน web channel endpoint จริง (`chn_web_demo` จาก `seed:dev`) · login = `agent@demo.local`/`demo1234`
 
