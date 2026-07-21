@@ -1,0 +1,477 @@
+/* ============================================
+   documents.css — Quote, Invoice, Receipt Styles
+   ============================================ */
+
+/* ── Shared Document Base ── */
+.doc-page {
+  position: relative;
+  min-height: 100%;
+  padding: 6.5rem 1rem 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .doc-page { padding: 7.5rem 1.5rem 1.5rem; }
+}
+
+@media (min-width: 1024px) {
+  .doc-page { padding: 8rem 2rem 2rem; }
+}
+
+.doc-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.doc-empty-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.doc-empty-content span { font-size: 3.75rem; margin-bottom: 1rem; }
+.doc-empty-content h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-foreground); }
+.doc-empty-content p { color: var(--color-muted); margin-bottom: 1.5rem; }
+
+.doc-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 56rem;
+  margin: 0 auto 1.5rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.doc-actions-right {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.doc-document {
+  max-width: 56rem;
+  margin: 0 auto;
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border);
+  padding: 2rem;
+}
+
+@media (min-width: 640px) {
+  .doc-document { padding: 3rem; }
+}
+
+/* ── Document Header ── */
+.doc-header {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--color-border);
+}
+
+@media (min-width: 640px) {
+  .doc-header {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+}
+
+.doc-company-name {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.doc-company-sub {
+  font-size: 0.875rem;
+  color: var(--color-muted);
+}
+
+.doc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.doc-badge-quote {
+  background: rgba(5, 150, 105, 0.1);
+  color: var(--color-primary);
+}
+
+.doc-badge-invoice {
+  background: rgba(234, 179, 8, 0.1);
+  color: #d97706;
+}
+
+.doc-badge-receipt {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+}
+
+.doc-meta {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.doc-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.doc-meta-label {
+  font-size: 0.875rem;
+  color: var(--color-muted);
+}
+
+.doc-meta-value {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+
+.doc-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}
+
+.doc-status-pending {
+  background: rgba(234, 179, 8, 0.1);
+  color: #d97706;
+}
+
+.doc-status-paid {
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
+}
+
+/* ── Document Section ── */
+.doc-section {
+  margin-bottom: 2rem;
+}
+
+.doc-section-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ── Customer Form ── */
+.doc-customer { margin-bottom: 2rem; }
+
+.doc-customer-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .doc-customer-form {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.doc-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-foreground);
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.doc-input::placeholder {
+  color: var(--color-muted);
+}
+
+.doc-input:focus {
+  border-color: var(--color-primary);
+}
+
+.doc-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-foreground);
+  margin-bottom: 0.25rem;
+}
+
+/* ── Project Type ── */
+.doc-project-type {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: rgba(5, 150, 105, 0.06);
+  gap: 0.5rem;
+}
+
+.doc-project-type .icon { font-size: 1.5rem; }
+.doc-project-type .name { font-weight: 600; color: var(--color-foreground); }
+.doc-project-type .name-en { color: var(--color-muted); margin-left: 0.5rem; }
+
+/* ── Features Table ── */
+.doc-table {
+  width: 100%;
+  font-size: 0.875rem;
+  border-collapse: collapse;
+}
+
+.doc-table th {
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-alt);
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-foreground);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.doc-table td {
+  padding: 0.75rem 1rem;
+  color: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+.doc-table .text-center { text-align: center; }
+.doc-table .text-right { text-align: right; }
+.doc-table .font-mono { font-family: 'SF Mono', 'Fira Code', monospace; }
+.doc-table .font-semibold { font-weight: 600; }
+.doc-table .font-medium { font-weight: 500; color: var(--color-foreground); }
+
+.doc-table .category-row {
+  background: var(--color-surface-alt);
+}
+
+.doc-table .category-row td {
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.doc-level {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.doc-level.level-basic { background: rgba(34, 197, 94, 0.1); color: #16a34a; }
+.doc-level.level-standard { background: rgba(59, 130, 246, 0.1); color: #2563eb; }
+.doc-level.level-premium { background: rgba(168, 85, 247, 0.1); color: #7c3aed; }
+
+/* ── Summary ── */
+.doc-summary {
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.doc-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  color: var(--color-muted);
+}
+
+.doc-summary-row.discount { color: #16a34a; }
+
+.doc-summary-row.total {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+  border-top: 1px solid var(--color-border);
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+}
+
+.doc-summary-row.grand-total {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-foreground);
+  background: rgba(5, 150, 105, 0.06);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  margin-top: 0.5rem;
+}
+
+.doc-summary-row.grand-total .amount-quote { color: var(--color-primary); }
+.doc-summary-row.grand-total .amount-invoice { color: #d97706; }
+.doc-summary-row.grand-total .amount-receipt { color: #16a34a; }
+
+/* ── Payment Info ── */
+.doc-payment { margin-bottom: 2rem; }
+
+.doc-payment-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .doc-payment-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.doc-payment-method {
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.doc-payment-method-title {
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-bottom: 0.5rem;
+}
+
+.doc-payment-method-content {
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.doc-payment-form {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .doc-payment-form {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── Notes ── */
+.doc-notes { margin-bottom: 2rem; }
+
+.doc-terms {
+  list-style: disc;
+  list-style-position: inside;
+  font-size: 0.875rem;
+  color: var(--color-muted);
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* ── Footer / Signature ── */
+.doc-footer {
+  padding-top: 2rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.doc-signature {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.doc-signature-box {
+  text-align: center;
+}
+
+.doc-signature-line {
+  height: 1px;
+  background: var(--color-border);
+  margin-bottom: 0.5rem;
+  margin-top: 4rem;
+}
+
+.doc-signature-box p {
+  font-size: 0.875rem;
+  color: var(--color-foreground);
+}
+
+.doc-signature-box .sub {
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+
+/* ── Print Styles ── */
+.print-hidden { }
+.print-show { display: none; }
+
+@media print {
+  body {
+    background: white;
+    color: black;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .app-header,
+  .app-footer,
+  .doc-actions,
+  .print-hidden {
+    display: none !important;
+  }
+
+  .print-show { display: block !important; }
+
+  .app-layout { height: auto; overflow: visible; }
+  .app-content { overflow: visible; }
+
+  .doc-page { padding: 0; }
+  .doc-document { box-shadow: none; border: 0; border-radius: 0; padding: 0; max-width: 100%; }
+
+  .doc-header { padding-bottom: 0.5rem; margin-bottom: 0.5rem; }
+  .doc-company-name { font-size: 1.25rem !important; }
+  .doc-section { margin-bottom: 0.5rem; page-break-inside: avoid; }
+  .doc-section-title { font-size: 0.875rem; margin-bottom: 0.25rem; padding-bottom: 0.25rem; }
+
+  .doc-table { font-size: 0.625rem !important; }
+  .doc-table th, .doc-table td { padding: 0.25rem 0.5rem; border: 1px solid #d1d5db; }
+  .doc-level { padding: 0.0625rem 0.25rem; font-size: 0.5625rem !important; }
+
+  .doc-summary { padding: 0.5rem; margin-bottom: 0.5rem; }
+  .doc-summary-row { padding: 0.125rem 0; font-size: 0.875rem; }
+  .doc-summary-row.total { font-size: 0.875rem; padding-top: 0.25rem; margin-top: 0.25rem; }
+  .doc-summary-row.grand-total { font-size: 1rem; padding: 0.25rem 0.5rem; margin-top: 0.25rem; }
+
+  .doc-notes { margin-bottom: 0.5rem; }
+  .doc-terms { font-size: 0.625rem !important; }
+
+  .doc-footer { padding-top: 0.5rem; }
+  .doc-signature { gap: 1rem; }
+  .doc-signature-line { margin-top: 2rem; margin-bottom: 0.25rem; }
+  .doc-signature-box p { font-size: 0.75rem; }
+
+  .doc-document { page-break-inside: avoid; }
+}
