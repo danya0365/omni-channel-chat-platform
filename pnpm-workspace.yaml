@@ -1,3 +1,4 @@
 packages:
   - 'apps/*'
+  - '!apps/billing' # เครื่องมือ marketing (ใบเสนอราคา) แยกเดี่ยว — มี node_modules/lockfile ของตัวเอง
   - 'packages/*'

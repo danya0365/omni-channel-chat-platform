@@ -94,6 +94,8 @@ module.exports = {
   ],
   options: {
     doNotFollow: { path: '(node_modules|\\.next)' },
+    // apps/billing = เครื่องมือ marketing แยกเดี่ยว ไม่ใช่ส่วนของ product — ไม่อยู่ใต้ boundary rule
+    exclude: { path: '^apps/billing' },
     tsConfig: { fileName: 'tsconfig.base.json' },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {

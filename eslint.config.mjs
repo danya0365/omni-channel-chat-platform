@@ -12,6 +12,8 @@ export default tseslint.config(
       '**/next-env.d.ts',
       '**/*.config.{js,cjs,mjs}',
       '.dependency-cruiser.cjs',
+      // apps/billing = เครื่องมือ marketing แยกเดี่ยว (ไม่ใช่ส่วนของ product) — มี lint/tsconfig ของตัวเอง
+      'apps/billing/**',
     ],
   },
   js.configs.recommended,
