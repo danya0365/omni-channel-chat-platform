@@ -22,6 +22,7 @@ function walk(dir, out) {
 function appDirs() {
   const dirs = [];
   for (const app of readdirSync('apps')) {
+    if (app === 'billing') continue; // เครื่องมือ marketing แยกเดี่ยว — ไม่อยู่ใต้ standard ของ product
     const appDir = join('apps', app, 'app');
     try {
       if (statSync(appDir).isDirectory()) dirs.push(appDir);

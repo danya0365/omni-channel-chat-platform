@@ -7,3 +7,4 @@ export * from './message';
 export * from './agent';
 export * from './bot-rule';
 export * from './workspace-bot-config';
+export * from './workspace-entitlements';

@@ -8,13 +8,16 @@ metadata:
   scope: go-to-market
   updated: 2026-07-19
   originSessionId: 46ba0ab4-fb53-4b26-a045-19ba5c8332f1
+  modified: 2026-07-20T10:16:58.876Z
 ---
 
-# Marketing Page — Brief (จดไว้ก่อนนอน 2026-07-19 · ยังไม่เริ่ม build)
+# Marketing Page — Brief (ร่าง 2026-07-19 · **active focus ตั้งแต่ 2026-07-20**)
 
-> **สถานะ: PLANNED — ยังไม่ลงมือ** พี่สั่งให้ "จดไว้ก่อน เดี๋ยวค่อยทำ"
+> **สถานะ: ACTIVE — พี่ pivot มาลุยงานนี้ 2026-07-20** (พัก dev Phase 5 ไว้ที่จุด PR-ready ดู [[phase-5-progress]])
 > เป้าหมาย: สร้าง **หน้า Marketing/landing** + ชุดขาย (kit) ให้ **ทีม marketing เอาโปรเจคนี้ไปขาย**
 > อ่านคู่: [[project-overview]] · [[frontend-architecture-standard]] · [[adr-0004-phase-4-routing-and-line-channel]]
+>
+> ▶️ **เริ่มที่ section 5 (Next step) — ด่านแรกคือเคาะ section C (ICP + pricing + positioning) ก่อน** เป็น input ของทุกอย่าง
 
 ---
 
@@ -32,12 +35,12 @@ metadata:
 - **Widget ฝังเว็บได้** — `<script>` ตัวเดียวแปะหน้าไหนก็ได้
 - **Self-host / own-your-data** — ไม่ผูก SaaS ต่างชาติ, ข้อมูลลูกค้าอยู่กับธุรกิจเอง
 
-### 🔜 Roadmap (Phase 5 — ยังไม่ทำ · ขายเป็น "coming soon" เท่านั้น)
+### 🟡 Phase 5 — build เสร็จแล้ว (2026-07-20) แต่ยังไม่ merge · เคลมแบบมีเงื่อนไข
 
-- **Bot / automation** — keyword → canned reply → escalate หา human
-- **AI reply** — ต่อ Claude API ช่วยร่าง/ตอบอัตโนมัติ
+- **Bot / automation (rule-based)** — keyword `contains` → canned reply / escalate หา human · **✅ ของจริง verify แล้ว** (gate + integration e2e) → **เคลมได้** แต่พูดตรงว่า rule-based (ยังไม่ merge เข้า main, ยังไม่มี admin UI จัดการ rule — เปิด/แก้ผ่าน seed/DB)
+- **AI reply (Claude Opus 4.8)** — no_match + opt-in → ถาม AI ช่วยตอบ · **🟡 build+test แล้ว (integration, fake fetch) แต่ยังไม่เคยยิง API จริง + ยังไม่ merge** → เคลมแบบ **"AI-assisted (beta / เร็วๆนี้)"** ไม่ใช่ production-ready เต็มปาก
 
-> ⚠️ กฎ DoD ของโปรเจค: อย่าให้ marketing เคลม bot/AI ว่า "มีแล้ว" — ยังไม่ build
+> ⚠️ กฎ DoD (อัปเดต 2026-07-20): เดิมห้ามเคลม bot/AI เลย — ตอนนี้ bot rule-based เคลมได้, AI reply เคลมแบบ beta · **ห้ามเคลม admin UI / real-API-verified** จนกว่าจะทำ (item ก/ค ใน [[phase-5-progress]])
 
 ---
 

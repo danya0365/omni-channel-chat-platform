@@ -1,0 +1,129 @@
+'use client';
+
+import Link from 'next/link';
+import { useTrail, animated, useSpring, config } from 'react-spring';
+import { cn } from '../../utils/cn';
+
+/**
+ * TermsView Component
+ * Terms of service content for OmniChat
+ * Following Clean Architecture - UI only
+ */
+export function TermsView() {
+  const heroSpring = useSpring({
+    from: { opacity: 0, transform: 'translateY(30px)' },
+    to: { opacity: 1, transform: 'translateY(0px)' },
+    config: config.gentle,
+  });
+
+  const sectionsTrail = useTrail(TERMS_SECTIONS.length, {
+    from: { opacity: 0, transform: 'translateY(20px)' },
+    to: { opacity: 1, transform: 'translateY(0px)' },
+    delay: 300,
+    config: config.stiff,
+  });
+
+  return (
+    <div className="legal-page">
+      {/* Hero Section - Full Width */}
+      <animated.section 
+        className={cn(
+          "legal-hero relative pt-32 pb-20 md:pt-48 md:pb-36 overflow-hidden"
+        )}
+        style={{
+          ...heroSpring,
+          background: 'linear-gradient(135deg, var(--color-background) 0%, var(--header-bg) 50%, var(--color-background) 100%)',
+        }}
+      >
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary-500 blur-[120px]" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-accent-500 blur-[120px]" />
+        </div>
+
+        <div className="about-container relative z-10">
+          <h1 className="legal-title text-gradient">ข้อกำหนดการใช้งาน</h1>
+          <p className="legal-updated">อัปเดตล่าสุด: 1 มกราคม 2026</p>
+        </div>
+      </animated.section>
+
+      {/* Contained Content Sections */}
+      <div className="about-container mt-[-4rem] relative z-20">
+        <div className="max-w-4xl mx-auto">
+          {sectionsTrail.map((style, index) => {
+            const section = TERMS_SECTIONS[index];
+            return (
+              <animated.section key={index} style={style} className="legal-section">
+                <h2 className="text-xl font-bold text-emerald-500 mb-4">{section.title}</h2>
+                {section.content && <p className="text-gray-600 dark:text-gray-300 leading-relaxed mb-4">{section.content}</p>}
+                {section.items && (
+                  <ul className="space-y-2">
+                    {section.items.map((item, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <span className="text-emerald-500 mt-1">✓</span>
+                        <span className="text-gray-600 dark:text-gray-300">{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </animated.section>
+            );
+          })}
+
+          <div className="legal-back py-12">
+            <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors font-semibold">
+              ← กลับหน้าแรก
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// Content Data
+// ============================================
+
+const TERMS_SECTIONS = [
+  {
+    title: '1. การยอมรับข้อกำหนด',
+    content: 'โดยการใช้งาน OmniChat คุณยอมรับและตกลงที่จะปฏิบัติตามข้อกำหนดเหล่านี้ หากไม่เห็นด้วย กรุณาหยุดใช้งานบริการของเรา',
+  },
+  {
+    title: '2. ขอบเขตการให้บริการ',
+    content: 'OmniChat ให้บริการ:',
+    items: [
+      'แพลตฟอร์มรวมแชททุกช่องทาง (Omni-Channel Chat Platform)',
+      'การสร้างใบเสนอราคาอัตโนมัติ',
+      'ระบบมอบหมายงาน บอทตอบอัตโนมัติ และรายงาน',
+      'บริการติดตั้งและฝึกอบรม',
+      'การสนับสนุนทางเทคนิค',
+    ],
+  },
+  {
+    title: '3. การชำระเงิน',
+    items: [
+      'ชำระ 50% เมื่อตกลงสั่งซื้อ',
+      'ชำระ 50% เมื่อส่งมอบงาน',
+      'ราคาไม่รวม VAT 7%',
+      'ใบเสนอราคามีผล 30 วัน',
+    ],
+  },
+  {
+    title: '4. การรับประกัน',
+    content: 'เรารับประกันระบบเป็นระยะเวลา 1 ปี นับจากวันส่งมอบ โดยครอบคลุม:',
+    items: [
+      'การแก้ไขข้อผิดพลาดของระบบ',
+      'การอัปเดตซอฟต์แวร์',
+      'การสนับสนุนทางเทคนิคผ่านทางโทรศัพท์และอีเมล',
+    ],
+  },
+  {
+    title: '5. ข้อมูลบทสนทนาลูกค้า',
+    content: 'ข้อความและข้อมูลลูกค้าทั้งหมดเป็นทรัพย์สินของลูกค้า ทางบริษัทไม่มีสิทธิ์เข้าถึงหรือเปิดเผยข้อมูลดังกล่าว ยกเว้นกรณีที่ได้รับอนุญาตจากลูกค้าเป็นลายลักษณ์อักษร',
+  },
+  {
+    title: '6. ข้อจำกัดความรับผิด',
+    content: 'OmniChat ไม่รับผิดชอบต่อความเสียหายทางอ้อม การสูญเสียรายได้ หรือความเสียหายที่เกิดจากการใช้งานระบบในทางที่ผิด รวมถึงความเสียหายจากข้อความที่บอทหรือ AI ตอบโดยอัตโนมัติ',
+  },
+];

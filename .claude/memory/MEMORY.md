@@ -3,6 +3,10 @@
 > Active index — โหลดทุก session **คุมให้ ≤150 บรรทัด**
 > ดู [MEMORY-GUIDE.md](MEMORY-GUIDE.md) สำหรับวิธีจัดการ (เพิ่ม/archive/promote)
 
+## 🔥 แนวทางหลัก — อ่านก่อนเริ่มงานทุกครั้ง
+
+- [**Feature เปิดใช้ต่อ tenant ไม่ใช่ flag ในโค้ด**](core/product-direction-per-tenant.md) — **priority สูงสุด (2026-07-21)** — ขายแบบเลือกฟีเจอร์เอง แล้วเปิดใช้ด้วย **ข้อมูลต่อ workspace ใน DB เปลี่ยนได้ตอน runtime ไม่ต้อง deploy** · ❌ ห้าม `process.env.FEATURE_X` / build-time flag / fork ต่อลูกค้า / ซ่อนแค่ UI · บังคับสิทธิ์ที่ server เสมอ · **สร้างกลไกก่อน เขียนฟีเจอร์ตอนมีคนจ่าย** (ห้ามไล่เขียนให้ครบใบเสนอราคาก่อนขาย) · fail-closed
+
 ## Core
 
 - [Project Overview](core/project-overview.md) — โปรเจคนี้คืออะไร, เป้าหมาย, stack (เคาะแล้ว), roadmap 5 phase
@@ -18,6 +22,7 @@
 - [0004 Phase 4 Routing + LINE Channel](decisions/0004-phase-4-routing-and-line-channel.md) — routing = manual assign/close (verify ได้) · LINE = adapter mirror channel-web (HMAC, push) · credential เก็บ DB ต่อ channel แบบ encrypted (AES-GCM)
 - [0005 Auth Transport httpOnly Cookie](decisions/0005-auth-transport-httponly-cookie.md) — ย้าย auth จาก localStorage token → httpOnly cookie (SameSite=Strict) + CSRF Origin check + CORS credentials + WS cookie · ปลด server-first RSC
 - [0006 Phase 5 Bot/Automation + AI Reply](decisions/0006-phase-5-bot-automation-and-ai-reply.md) — bot ตื่นผ่าน consumer แยก (additive multi-subscriber outbox, cursor/subscriber) · bot เป็นเจ้าของสายใหม่ก่อน (escalate=null queue) · rules ต่อ workspace (plaintext) · AI = adapter @omni/bot-anthropic (inject fetch) + ANTHROPIC_API_KEY env + per-workspace opt-in · ปม PII
+- [0007 Phase 6 Entitlements](decisions/0007-phase-6-entitlements.md) — **เปิดฟีเจอร์ต่อ tenant ด้วยข้อมูลใน DB** (ไม่ใช่ flag ในโค้ด) · gate ระดับ **โมดูล 8 ตัว** ไม่ใช่รายฟีเจอร์ (45 flag = combination ระเบิด) · ช่องทางแชท gate ด้วยข้อมูลอยู่แล้ว · บริการไม่ใช่ flag · บังคับที่ server UI แค่ซ่อน · additive ไม่รื้อ `workspace_bot_config` · self-host กันไม่ได้จริง ยอมรับ
 
 ## Active Channels
 
@@ -32,12 +37,14 @@
 
 ## Working Log
 
-- [Phase 5 Progress](log/phase-5-progress.md) — **active (ยังไม่ commit)** — bot/automation + AI reply · ADR-0006 + Increment 1 (domain) + 2 (db) เขียวครบ (gate 194 + integration 37) · ถัดไป = 3a (bot consumer rule-only) → 3b (AI adapter raw-fetch) · branch `feature/phase-5-bot-automation`
+- [Phase 6 Progress](log/phase-6-progress.md) — **🔨 กำลังทำ** — entitlement (เปิดฟีเจอร์ต่อ tenant) · **Increment 1 (domain pure) เขียว** gate 227 (+10 test) · เหลือ: DB (ตาราง+repo+migration) / บังคับใช้ที่ server / UI+seed · **ยังไม่ commit**
+- [Phase 5 Progress](log/phase-5-progress.md) — **paused @ PR-ready (pivot ไป marketing)** — bot/automation + AI reply core (Increment 1-3b) เขียว+commit ครบ (gate 217 + integration 41) · branch push แล้วแต่ **PR ยังไม่สร้าง** (gh ไม่ auth) · resume = สร้าง PR **base `main`** (ไม่ใช่ phase-1-skeleton ที่ remote HEAD ชี้ค้าง) → merge · ถัดไป: verify API จริง / hardening / admin UI
 - [Phase 4 Progress](log/phase-4-progress.md) — **done · merged เข้า main (PR #2–#6)** — Phase 4 (routing + LINE) + hardening (dedup/tx-split/retry) + tech debt B (failed-status realtime, LINE profile name, auth httpOnly cookie [[adr-0005-auth-transport-httponly-cookie]]) · verify ครบ (gate+integration 34+e2e browser) · ถือ deferred tech debt list
 
 ## Go-to-Market
 
-- [Marketing Page Brief](log/marketing-page-brief.md) — **planned (ยังไม่เริ่ม)** — brief หน้า marketing/landing ให้ทีมขาย: features (built vs roadmap) · pain points · ROI/selling angles · สิ่งที่ทีม marketing ต้องมี + ต้องเคาะ (ICP/pricing/positioning)
+- **ใบเสนอราคา** (`apps/billing`) — **✅ ทำแล้ว (2026-07-21)** — Next app แยกเดี่ยว (นอก pnpm workspace/gate) ให้ลูกค้าเลือกฟีเจอร์เอง 72 ฟีเจอร์/10 หมวด → ราคาคำนวณทันที + ออกใบเสนอราคา/แจ้งหนี้/ใบเสร็จ · ราคา = **setup + รายเดือน** × **รูปแบบการจ้าง 4 แบบ** (solo+AI ×1.0 → บริษัท ×2.6) · **ช่องทางแชท = loss leader** (มาตรฐานลด 30% ตั้งแต่ตัวที่ 2 + เพดานรวม ฿10,000 · กลุ่มต้องขออนุมัติแยกราคา) · รัน `cd apps/billing && npm run dev`
+- [Marketing Page Brief](log/marketing-page-brief.md) — brief หน้า marketing/landing + go-to-market kit · **ยังค้าง: ICP + positioning + หน้าเพจจริง** (pricing เคาะแล้วผ่านใบเสนอราคา) · Phase 5 bot(rule)=เคลมได้ / AI=beta · pain points · ROI angles
 
 ## Reference
 

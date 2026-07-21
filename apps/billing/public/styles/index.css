@@ -1,0 +1,26 @@
+/* ============================================
+   index.css — Main Entry Point
+   
+   All styles are organized into separate modules:
+   
+   1. theme.css      → @theme tokens, :root, .dark overrides
+   2. base.css       → Base element styles (*, html, body, scrollbar)
+   3. animations.css → @keyframes + .animate-* utility classes
+   4. components.css → Glass, buttons, cards, layout, etc.
+   ============================================ */
+
+@import "tailwindcss";
+
+@import "./theme.css";
+
+@layer base {
+  @import "./base.css";
+}
+
+@layer components {
+  @import "./animations.css";
+  @import "./components.css";
+  @import "./builder.css";
+  @import './documents.css';
+  @import './static-pages.css';
+}
