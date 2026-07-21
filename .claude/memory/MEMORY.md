@@ -39,9 +39,13 @@
 
 ## 📍 ตอนนี้อยู่ตรงไหน (2026-07-21)
 
-**Phase 1–6 merged เข้า `main` หมดแล้ว · ไม่มี branch/งานค้างกลางคัน · working tree สะอาด**
+**Phase 1–6 merged เข้า `main` หมดแล้ว (dev ครบ ไม่มีงานค้างกลางคัน)**
 verify ล่าสุด: `pnpm gate` **260 unit** · `pnpm test:integration` **54** · e2e browser **3/3**
-→ งานถัดไปเลือกได้อิสระ — ตาราง 5 ตัวเลือก (A–E) + ความเห็น Iris อยู่ท้าย [[phase-6-progress]]
+
+🌿 **branch ปัจจุบัน = `feature/marketing-landing`** (แตกจาก `main` @ `49814c7`) —
+พี่เลือกงานถัดไป = **Marketing / landing page** (ตัวเลือก B ใน [[phase-6-progress]])
+→ **ด่านแรก: เคาะ ICP + positioning ก่อน** (เป็น input ของทุกอย่าง · pricing เคาะแล้วผ่านใบเสนอราคา)
+→ รายละเอียด + สิ่งที่เคลมได้/ไม่ได้ อยู่ใน [[marketing-page-brief]]
 
 ## Working Log
 
