@@ -8,7 +8,7 @@ metadata:
   scope: global
   updated: 2026-07-20
   originSessionId: 9c11ffe5-d555-468b-8678-432ff977c6c2
-  modified: 2026-07-20T10:02:56.585Z
+  modified: 2026-07-20T10:16:22.187Z
 ---
 
 # Handoff — Phase 5 กำลังทำ (bot/automation + AI reply)
@@ -16,12 +16,26 @@ metadata:
 > อ่านไฟล์นี้ + [[adr-0006-phase-5-bot-automation-and-ai-reply]] แล้วทำต่อได้ทันที
 > Phase 4 จบ/merged main แล้ว ([[phase-4-progress]])
 
-## สถานะ (2026-07-20) — Phase 5 core flow ครบ + committed
+## สถานะ (2026-07-20) — Phase 5 core PR-ready + **พัก (pivot ไป marketing)**
 
-- branch **`feature/phase-5-bot-automation`** · commits: 3a feat `5a8c79b` + docs `6d19cce` · **3b feat `e648bb8` + docs `664c44a`** · working tree สะอาด · **ยังไม่ merge/PR เข้า main**
+- branch **`feature/phase-5-bot-automation`** · commits: 3a feat `5a8c79b` + docs `6d19cce` · **3b feat `e648bb8` + docs `664c44a`** · working tree สะอาด · **push ขึ้น origin แล้ว (upstream set)**
 - **ADR-0006** + pointer ใน MEMORY.md · decisions หลัก: consumer แยก (additive multi-subscriber outbox) · bot รับสายใหม่ก่อน (escalate=null queue) · rules ต่อ workspace · AI = adapter inject fetch · 5A+5B รวด
-- ⭐ **Increment 1-3b เขียวครบ** (gate 217 + integration 41) — Phase 5 ครบ core flow (rule + AI fallback)
-- **ถัดไป (ยังไม่เริ่ม)**: (ก) verify ยิง Anthropic จริง 1 ครั้งตอนมี key (พิสูจน์ wire shape ที่ freeze) · (ข) hardening — AI timeout/rate-limit, outbox retention/cleanup (2 กลไก), dedup · (ค) admin UI จัดการ rules/bot config · (ง) merge → PR
+- ⭐ **Increment 1-3b เขียวครบ — re-verify สด 2026-07-20** (gate 217 + boundaries 189 modules + integration 41) — Phase 5 ครบ core flow (rule + AI fallback) · DoD ผ่าน พร้อมเปิด PR
+
+### ⏸️ จุดพัก (2026-07-20) — เลือก "merge → PR (ง)" แต่ค้างที่ขั้น create PR
+
+- พี่เคาะ **merge → PR** เป็น next step แล้ว **push branch สำเร็จ** แต่ **`gh` CLI ไม่ได้ auth** (`gh auth login` / ไม่มี `GH_TOKEN`) → สร้าง PR อัตโนมัติไม่ได้
+- **PR ยังไม่ถูกสร้าง** — พี่สั่งพักงาน dev ทั้งหมด **pivot ไปลุยงาน marketing ก่อน** ([[marketing-page-brief]])
+- **resume ทำ PR ยังไง**: (A) พี่สร้างผ่านเว็บ `https://github.com/danya0365/omni-channel-chat-platform/pull/new/feature/phase-5-bot-automation` **แล้วต้องเปลี่ยน base เป็น `main` เอง** · หรือ (B) auth `gh` แล้วให้ Iris ยิง `gh pr create --base main` (title/body ร่างไว้แล้ว — ดูใต้)
+- 🔴 **PR base ที่ถูกต้อง = `main`** (origin/main = integration branch จริง มี Phase 4 ครบ) — **ไม่ใช่ `feature/phase-1-stack-skeleton`** ที่ remote HEAD ชี้ค้าง (branch เก่า a8f41e3 ก่อน Phase 4) · gitStatus/เว็บ/gh จะ default ผิดเป็นตัวนี้ **ต้องแก้เป็น main เสมอ**
+- **PR title**: `feat(bot): Phase 5 — bot automation (rule-first) + AI reply fallback (Claude Opus 4.8)` · body ร่างเต็มไว้ (Phase 5 core + verify + follow-up list) — ถ้า scratchpad หาย เขียนใหม่จาก section ด้านล่างได้
+
+### ถัดไปหลังกลับมาจาก marketing (ยังไม่เริ่ม)
+
+- (ง) **สร้าง PR → merge เข้า main** ← จุดที่ค้างจริง
+- (ก) verify ยิง Anthropic จริง 1 ครั้งตอนมี key (พิสูจน์ wire shape ที่ freeze)
+- (ข) hardening — AI timeout/rate-limit, outbox retention/cleanup (2 กลไก), dedup
+- (ค) admin UI จัดการ rules/bot config
 
 ## ✅ Increment 1 — Domain (pure) — เขียว (gate 194 unit)
 
