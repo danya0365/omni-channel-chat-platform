@@ -1,7 +1,8 @@
 'use client';
 
-import { DOCUMENT_PREFIXES, VAT_CONFIG } from '@/src/config/quotation.config';
+import { VAT_CONFIG } from '@/src/config/quotation.config';
 import { formatPrice, getProjectTypeById, tierMonthly, tierSetup } from '@/src/data/mock/mockFeatures';
+import { useIssuedDocument } from '@/src/presentation/hooks/useIssuedDocument';
 import { useQuotationStore } from '@/src/presentation/store/quotationStore';
 import dayjs from 'dayjs';
 import 'dayjs/locale/th';
@@ -27,7 +28,19 @@ export function useReceiptPresenter() {
   const printRef = useRef<HTMLDivElement>(null);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
-  const [paidDate, setPaidDate] = useState(dayjs().format('YYYY-MM-DD'));
+
+  // เลขที่เอกสาร/วันที่ออก — ออกครั้งเดียวแล้วคงไว้ (refresh ไม่เปลี่ยน) ดู useIssuedDocument
+  const {
+    documentNumber: receiptNumber,
+    documentDate: receiptDate,
+    issuedAt,
+    isReady: isDocumentReady,
+    reissueNumber,
+  } = useIssuedDocument('receipt');
+
+  // วันที่ชำระ default = วันที่ออกใบเสร็จ — แก้เองได้ (แก้แล้วยึดค่าที่กรอก)
+  const [paidDateOverride, setPaidDateOverride] = useState<string | null>(null);
+  const paidDate = paidDateOverride ?? issuedAt ?? '';
 
   const projectTypeData = useMemo(
     () => (projectType ? getProjectTypeById(projectType) : null),
@@ -46,15 +59,8 @@ export function useReceiptPresenter() {
   const vat = vatOption === 'include' ? Math.round(total * VAT_CONFIG.rate) : 0;
   const grandTotal = vatOption === 'include' ? Math.round(total * VAT_CONFIG.multiplier) : total;
 
-  const receiptNumber = useMemo(() => {
-    const now = dayjs();
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${DOCUMENT_PREFIXES.receipt}-${now.format('YYYYMMDD')}-${random}`;
-  }, []);
-
-  const receiptDate = useMemo(() => dayjs().locale('th').format('D MMMM YYYY'), []);
   const formattedPaidDate = useMemo(
-    () => dayjs(paidDate).locale('th').format('D MMMM YYYY'),
+    () => (paidDate ? dayjs(paidDate).locale('th').format('D MMMM YYYY') : ''),
     [paidDate]
   );
 
@@ -79,11 +85,11 @@ export function useReceiptPresenter() {
   const updateNotes = useCallback((newNotes: string) => setNotes(newNotes), [setNotes]);
   const updatePaymentMethod = useCallback((val: string) => setPaymentMethod(val), []);
   const updatePaymentReference = useCallback((val: string) => setPaymentReference(val), []);
-  const updatePaidDate = useCallback((val: string) => setPaidDate(val), []);
+  const updatePaidDate = useCallback((val: string) => setPaidDateOverride(val), []);
 
   return {
     printRef, hasContent,
-    receiptNumber, receiptDate,
+    receiptNumber, receiptDate, isDocumentReady, reissueNumber,
     projectType, projectTypeData,
     selectedFeatures, selectedFeaturesData,
     subtotal, discount, channelDiscount, discountPercent, total, vat, grandTotal, vatOption,

@@ -1,7 +1,8 @@
 'use client';
 
-import { DOCUMENT_PREFIXES, DOCUMENT_VALIDITY, VAT_CONFIG } from '@/src/config/quotation.config';
+import { DOCUMENT_VALIDITY, VAT_CONFIG } from '@/src/config/quotation.config';
 import { formatPrice, getProjectTypeById, tierMonthly, tierSetup } from '@/src/data/mock/mockFeatures';
+import { useIssuedDocument } from '@/src/presentation/hooks/useIssuedDocument';
 import { useQuotationStore } from '@/src/presentation/store/quotationStore';
 import dayjs from 'dayjs';
 import 'dayjs/locale/th';
@@ -55,16 +56,24 @@ export function useQuotePresenter() {
     vatOption === 'include' ? Math.round(monthlyTotal * VAT_CONFIG.multiplier) : monthlyTotal;
   const firstYearTotal = grandTotal + monthlyGrandTotal * 12;
 
-  const quoteNumber = useMemo(() => {
-    const now = dayjs();
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${DOCUMENT_PREFIXES.quote}-${now.format('YYYYMMDD')}-${random}`;
-  }, []);
+  // เลขที่เอกสาร/วันที่ออก — ออกครั้งเดียวแล้วคงไว้ (refresh ไม่เปลี่ยน) ดู useIssuedDocument
+  const {
+    documentNumber: quoteNumber,
+    documentDate: quoteDate,
+    issuedAt,
+    isReady: isDocumentReady,
+    reissueNumber,
+  } = useIssuedDocument('quote');
 
-  const quoteDate = useMemo(() => dayjs().locale('th').format('D MMMM YYYY'), []);
   const validUntil = useMemo(
-    () => dayjs().add(DOCUMENT_VALIDITY.quoteValidDays, 'day').locale('th').format('D MMMM YYYY'),
-    []
+    () =>
+      issuedAt
+        ? dayjs(issuedAt)
+            .add(DOCUMENT_VALIDITY.quoteValidDays, 'day')
+            .locale('th')
+            .format('D MMMM YYYY')
+        : '',
+    [issuedAt]
   );
 
   const hasContent = !!(projectType || selectedFeatures.length > 0);
@@ -89,7 +98,7 @@ export function useQuotePresenter() {
 
   return {
     printRef, hasContent,
-    quoteNumber, quoteDate, validUntil,
+    quoteNumber, quoteDate, validUntil, isDocumentReady, reissueNumber,
     projectType, projectTypeData,
     selectedFeatures, selectedFeaturesData,
     subtotal, discount, channelDiscount, discountPercent, total, vat, grandTotal, vatOption,

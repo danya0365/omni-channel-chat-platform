@@ -16,7 +16,7 @@ import { useReceiptPresenter } from '@/src/presentation/hooks/useReceiptPresente
 export function ReceiptView() {
   const {
     printRef, hasContent,
-    receiptNumber, receiptDate,
+    receiptNumber, receiptDate, isDocumentReady, reissueNumber,
     projectTypeData, selectedFeaturesData,
     subtotal, discount, channelDiscount, discountPercent, total, vat, grandTotal, vatOption,
     customerName, customerPhone, customerEmail, notes,
@@ -68,7 +68,20 @@ export function ReceiptView() {
         <div className="doc-actions-right">
           <a href="/quote" className="app-btn app-btn-secondary">📋 ใบเสนอราคา</a>
           <a href="/invoice" className="app-btn app-btn-secondary">📝 ใบแจ้งหนี้</a>
-          <button onClick={() => handlePrint()} className="app-btn app-btn-primary">🖨️ พิมพ์ใบเสร็จ</button>
+          <button
+            onClick={reissueNumber}
+            className="app-btn app-btn-ghost"
+            title="เดินเลขที่เอกสารเป็นใบถัดไป (ใช้ตอนออกใบให้ลูกค้ารายใหม่)"
+          >
+            🔄 ออกเลขใหม่
+          </button>
+          <button
+            onClick={() => handlePrint()}
+            className="app-btn app-btn-primary"
+            disabled={!isDocumentReady}
+          >
+            🖨️ พิมพ์ใบเสร็จ
+          </button>
         </div>
       </div>
 
@@ -92,7 +105,7 @@ export function ReceiptView() {
           <div className="doc-meta">
             <div className="doc-meta-item">
               <span className="doc-meta-label">เลขที่ใบเสร็จ</span>
-              <span className="doc-meta-value">{receiptNumber}</span>
+              <span className="doc-meta-value">{receiptNumber || '—'}</span>
             </div>
             <div className="doc-meta-item">
               <span className="doc-meta-label">วันที่ออก</span>

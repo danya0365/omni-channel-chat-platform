@@ -1,7 +1,8 @@
 'use client';
 
-import { DOCUMENT_PREFIXES, DOCUMENT_VALIDITY, VAT_CONFIG } from '@/src/config/quotation.config';
+import { DOCUMENT_VALIDITY, VAT_CONFIG } from '@/src/config/quotation.config';
 import { formatPrice, getProjectTypeById, tierMonthly, tierSetup } from '@/src/data/mock/mockFeatures';
+import { useIssuedDocument } from '@/src/presentation/hooks/useIssuedDocument';
 import { useQuotationStore } from '@/src/presentation/store/quotationStore';
 import dayjs from 'dayjs';
 import 'dayjs/locale/th';
@@ -25,9 +26,21 @@ export function useInvoicePresenter() {
   const tierMonthlyOf = useCallback((amount: number) => tierMonthly(amount, deliveryTier), [deliveryTier]);
 
   const printRef = useRef<HTMLDivElement>(null);
-  const [dueDate, setDueDate] = useState(
-    dayjs().add(DOCUMENT_VALIDITY.invoiceDueDays, 'day').format('YYYY-MM-DD')
-  );
+
+  // เลขที่เอกสาร/วันที่ออก — ออกครั้งเดียวแล้วคงไว้ (refresh ไม่เปลี่ยน) ดู useIssuedDocument
+  const {
+    documentNumber: invoiceNumber,
+    documentDate: invoiceDate,
+    issuedAt,
+    isReady: isDocumentReady,
+    reissueNumber,
+  } = useIssuedDocument('invoice');
+
+  // วันครบกำหนดนับจากวันที่ออกใบจริง — แก้เองได้ (แก้แล้วยึดค่าที่กรอก)
+  const [dueDateOverride, setDueDateOverride] = useState<string | null>(null);
+  const dueDate =
+    dueDateOverride ??
+    (issuedAt ? dayjs(issuedAt).add(DOCUMENT_VALIDITY.invoiceDueDays, 'day').format('YYYY-MM-DD') : '');
 
   const projectTypeData = useMemo(
     () => (projectType ? getProjectTypeById(projectType) : null),
@@ -46,15 +59,8 @@ export function useInvoicePresenter() {
   const vat = vatOption === 'include' ? Math.round(total * VAT_CONFIG.rate) : 0;
   const grandTotal = vatOption === 'include' ? Math.round(total * VAT_CONFIG.multiplier) : total;
 
-  const invoiceNumber = useMemo(() => {
-    const now = dayjs();
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${DOCUMENT_PREFIXES.invoice}-${now.format('YYYYMMDD')}-${random}`;
-  }, []);
-
-  const invoiceDate = useMemo(() => dayjs().locale('th').format('D MMMM YYYY'), []);
   const formattedDueDate = useMemo(
-    () => dayjs(dueDate).locale('th').format('D MMMM YYYY'),
+    () => (dueDate ? dayjs(dueDate).locale('th').format('D MMMM YYYY') : ''),
     [dueDate]
   );
 
@@ -77,11 +83,11 @@ export function useInvoicePresenter() {
   const updateCustomerPhone = useCallback((phone: string) => setCustomerInfo({ phone }), [setCustomerInfo]);
   const updateCustomerEmail = useCallback((email: string) => setCustomerInfo({ email }), [setCustomerInfo]);
   const updateNotes = useCallback((newNotes: string) => setNotes(newNotes), [setNotes]);
-  const updateDueDate = useCallback((date: string) => setDueDate(date), []);
+  const updateDueDate = useCallback((date: string) => setDueDateOverride(date), []);
 
   return {
     printRef, hasContent,
-    invoiceNumber, invoiceDate, dueDate, formattedDueDate,
+    invoiceNumber, invoiceDate, dueDate, formattedDueDate, isDocumentReady, reissueNumber,
     projectType, projectTypeData,
     selectedFeatures, selectedFeaturesData,
     subtotal, discount, channelDiscount, discountPercent, total, vat, grandTotal, vatOption,

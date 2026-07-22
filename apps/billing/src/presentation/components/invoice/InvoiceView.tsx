@@ -17,7 +17,7 @@ import { Fragment } from 'react';
 export function InvoiceView() {
   const {
     printRef, hasContent,
-    invoiceNumber, invoiceDate, dueDate, formattedDueDate,
+    invoiceNumber, invoiceDate, dueDate, formattedDueDate, isDocumentReady, reissueNumber,
     projectTypeData, selectedFeaturesData,
     subtotal, discount, channelDiscount, discountPercent, total, vat, grandTotal, vatOption, monthlyTotal,
     tierData, tierSetupOf,
@@ -63,7 +63,20 @@ export function InvoiceView() {
         <div className="doc-actions-right">
           <a href="/quote" className="app-btn app-btn-secondary">📋 ใบเสนอราคา</a>
           <a href="/receipt" className="app-btn app-btn-secondary">🧾 ใบเสร็จ</a>
-          <button onClick={() => handlePrint()} className="app-btn app-btn-primary">🖨️ พิมพ์ใบแจ้งหนี้</button>
+          <button
+            onClick={reissueNumber}
+            className="app-btn app-btn-ghost"
+            title="เดินเลขที่เอกสารเป็นใบถัดไป (ใช้ตอนออกใบให้ลูกค้ารายใหม่)"
+          >
+            🔄 ออกเลขใหม่
+          </button>
+          <button
+            onClick={() => handlePrint()}
+            className="app-btn app-btn-primary"
+            disabled={!isDocumentReady}
+          >
+            🖨️ พิมพ์ใบแจ้งหนี้
+          </button>
         </div>
       </div>
 
@@ -87,7 +100,7 @@ export function InvoiceView() {
           <div className="doc-meta">
             <div className="doc-meta-item">
               <span className="doc-meta-label">เลขที่ใบแจ้งหนี้</span>
-              <span className="doc-meta-value">{invoiceNumber}</span>
+              <span className="doc-meta-value">{invoiceNumber || '—'}</span>
             </div>
             <div className="doc-meta-item">
               <span className="doc-meta-label">วันที่ออก</span>
