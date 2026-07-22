@@ -203,10 +203,10 @@ export function HomeView() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
             <Link
-              href="/builder"
+              href="/pricing"
               className="btn-primary text-lg px-8 py-3 rounded-xl inline-flex items-center gap-2"
             >
-              <span>🛠️</span>
+              <span>💰</span>
               <span>ดูราคาของคุณ</span>
             </Link>
             <Link
@@ -371,11 +371,11 @@ export function HomeView() {
             อยากรู้ว่าระบบของคุณราคาเท่าไหร่?
           </h2>
           <p className="text-muted text-lg mb-8">
-            ติ๊กเลือกช่องทางและฟีเจอร์ที่ต้องการ เห็นราคาทันที ไม่ต้องกรอกอีเมล ไม่ต้องรอเซลล์ติดต่อกลับ
+            ดูแพ็กเกจและราคาเริ่มต้นตามประเภทธุรกิจได้เลย ไม่ต้องกรอกอีเมล ไม่ต้องรอเซลล์ติดต่อกลับ
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              href="/builder"
+              href="/pricing"
               className="btn-primary text-lg px-10 py-4 rounded-xl inline-flex items-center gap-2"
             >
               <span>🚀</span>

@@ -44,7 +44,7 @@ export function MainHeader() {
 
   const navLinks = [
     { href: '/', label: 'หน้าแรก', icon: '🏠' },
-    { href: '/builder', label: 'ดูราคา', icon: '🛠️' },
+    { href: '/pricing', label: 'ดูราคา', icon: '💰' },
     { href: '/about', label: 'เกี่ยวกับเรา', icon: 'ℹ️' },
   ];
 
