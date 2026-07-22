@@ -17,7 +17,7 @@ import { Fragment } from 'react';
 export function QuoteView() {
   const {
     printRef, hasContent,
-    quoteNumber, quoteDate, validUntil,
+    quoteNumber, quoteDate, validUntil, isDocumentReady, reissueNumber,
     projectTypeData, selectedFeaturesData,
     subtotal, discount, channelDiscount, discountPercent, total, vat, grandTotal, vatOption,
     monthlyTotal, monthlyGrandTotal, firstYearTotal,
@@ -69,9 +69,23 @@ export function QuoteView() {
       <div className="doc-actions print-hidden">
         <a href="/builder" className="app-btn app-btn-ghost">← กลับไป Builder</a>
         <div className="doc-actions-right">
+          <a href="/compare" className="app-btn app-btn-secondary">⚖️ เทียบแพ็กเกจ</a>
           <a href="/invoice" className="app-btn app-btn-secondary">📝 ใบแจ้งหนี้</a>
           <a href="/receipt" className="app-btn app-btn-secondary">🧾 ใบเสร็จ</a>
-          <button onClick={() => handlePrint()} className="app-btn app-btn-primary">🖨️ พิมพ์ใบเสนอราคา</button>
+          <button
+            onClick={reissueNumber}
+            className="app-btn app-btn-ghost"
+            title="เดินเลขที่เอกสารเป็นใบถัดไป (ใช้ตอนออกใบให้ลูกค้ารายใหม่)"
+          >
+            🔄 ออกเลขใหม่
+          </button>
+          <button
+            onClick={() => handlePrint()}
+            className="app-btn app-btn-primary"
+            disabled={!isDocumentReady}
+          >
+            🖨️ พิมพ์ใบเสนอราคา
+          </button>
         </div>
       </div>
 
@@ -90,7 +104,7 @@ export function QuoteView() {
           <div className="doc-meta">
             <div className="doc-meta-item">
               <span className="doc-meta-label">เลขที่</span>
-              <span className="doc-meta-value">{quoteNumber}</span>
+              <span className="doc-meta-value">{quoteNumber || '—'}</span>
             </div>
             <div className="doc-meta-item">
               <span className="doc-meta-label">วันที่</span>

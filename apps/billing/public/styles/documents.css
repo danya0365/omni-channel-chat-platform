@@ -428,6 +428,152 @@
 .print-hidden { }
 .print-show { display: none; }
 
+/* ============================================
+   Package Comparison — ใบเสนอราคาแบบเทียบ 3 แพ็กเกจ
+   ============================================ */
+
+.cmp-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.cmp-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.cmp-control-label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.cmp-context {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.cmp-table-wrap {
+  overflow-x: auto;
+}
+
+.cmp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  table-layout: fixed;
+}
+
+.cmp-table th,
+.cmp-table td {
+  border: 1px solid var(--color-border);
+  padding: 0.625rem 0.75rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.cmp-th-label,
+.cmp-td-label {
+  width: 28%;
+  text-align: left;
+  font-weight: 500;
+}
+
+.cmp-th {
+  background: var(--color-surface-alt);
+  position: relative;
+}
+
+.cmp-th-recommended {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border-color: var(--color-primary);
+}
+
+.cmp-badge {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  letter-spacing: 0.03em;
+}
+
+.cmp-pkg-icon {
+  display: block;
+  font-size: 1.25rem;
+}
+
+.cmp-pkg-name {
+  display: block;
+  font-weight: 700;
+  font-size: 0.9375rem;
+}
+
+.cmp-pkg-desc {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--color-muted);
+  line-height: 1.35;
+}
+
+.cmp-td-recommended {
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+
+.cmp-td-empty {
+  color: var(--color-muted);
+}
+
+.cmp-price {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.cmp-price-total {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cmp-note {
+  font-size: 0.6875rem;
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+.cmp-row-total td {
+  border-bottom-width: 2px;
+}
+
+.cmp-row-divider td {
+  background: var(--color-surface-alt);
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-muted);
+}
+
+.cmp-cat-icon {
+  margin-right: 0.25rem;
+}
+
+.cmp-footnote {
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+}
+
 @media print {
   body {
     background: white;
@@ -474,4 +620,32 @@
   .doc-signature-box p { font-size: 0.75rem; }
 
   .doc-document { page-break-inside: avoid; }
+
+  /* ตารางเทียบแพ็กเกจ — บีบให้จบใน A4 หน้าเดียว */
+  .cmp-table { font-size: 0.625rem !important; }
+  .cmp-table th, .cmp-table td { padding: 0.25rem 0.375rem; border: 1px solid #d1d5db; }
+  .cmp-pkg-icon { font-size: 0.875rem; }
+  .cmp-pkg-name { font-size: 0.6875rem; }
+  .cmp-pkg-desc { font-size: 0.5rem !important; }
+  .cmp-badge { font-size: 0.5rem !important; }
+  .cmp-note { font-size: 0.5rem !important; }
+  .cmp-price-total { font-size: 0.75rem !important; }
+  .cmp-footnote { font-size: 0.5625rem !important; margin-top: 0.375rem; }
+  .cmp-table-wrap { overflow-x: visible; page-break-inside: avoid; }
+
+  /* บีบส่วนบริบทให้ใบเทียบจบใน 1 หน้า (footer ไม่ตกไปหน้า 2) */
+  .cmp-context { gap: 0.5rem; }
+  .cmp-context .doc-project-type { padding: 0.25rem 0.5rem; font-size: 0.6875rem; }
+
+  .doc-document:has(.cmp-table) .cmp-table th,
+  .doc-document:has(.cmp-table) .cmp-table td { padding: 0.1875rem 0.375rem; }
+  .doc-document:has(.cmp-table) .doc-terms { font-size: 0.5625rem !important; }
+  .doc-document:has(.cmp-table) .doc-terms li { line-height: 1.25; }
+  .doc-document:has(.cmp-table) .doc-section { margin-bottom: 0.375rem; }
+  .doc-document:has(.cmp-table) .doc-notes { margin-bottom: 0.25rem; }
+  .doc-document:has(.cmp-table) .doc-footer { padding-top: 0.375rem; }
+  .doc-document:has(.cmp-table) .doc-signature-line { margin-top: 0.875rem; }
+  .doc-document:has(.cmp-table) .doc-header { padding-bottom: 0.25rem; margin-bottom: 0.25rem; }
+  .doc-document:has(.cmp-table) .cmp-footnote { margin-top: 0.25rem; }
+  .doc-document:has(.cmp-table) .doc-section-title { margin-bottom: 0.125rem; padding-bottom: 0.125rem; }
 }

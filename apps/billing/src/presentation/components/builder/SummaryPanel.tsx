@@ -291,6 +291,10 @@ export function SummaryPanel() {
             📄 ดูใบเสนอราคา
           </Link>
 
+          <Link href="/compare" className="builder-btn builder-btn-secondary">
+            ⚖️ ใบเทียบแพ็กเกจ
+          </Link>
+
           <Link href="/invoice" className="builder-btn builder-btn-secondary">
             📝 ออกใบแจ้งหนี้
           </Link>
